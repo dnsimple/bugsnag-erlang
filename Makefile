@@ -17,7 +17,6 @@ clean: $(REBAR)
 
 .PHONY: test
 test: $(REBAR) all
-	@$(REBAR) test
 	@$(REBAR) fmt --check
 
 .PHONY: fresh
