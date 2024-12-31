@@ -88,7 +88,7 @@ send_exception(_Type, Reason, Message, _Module, _Line, Trace, _Request, State) -
             ]
         ]}
     ],
-    deliver_payload(jsx:encode(Payload)).
+    deliver_payload(json:encode(Payload)).
 
 process_trace(Trace) ->
     lager:info("Processing trace ~p", [Trace]),
@@ -117,7 +117,11 @@ process_trace([Current | Rest], ProcessedTrace) ->
 
 deliver_payload(Payload) ->
     lager:info("Sending exception: ~p", [Payload]),
-    case httpc:request(post, {?NOTIFY_ENDPOINT, [], "application/json", Payload}, [{timeout, 5000}], []) of
+    case
+        httpc:request(
+            post, {?NOTIFY_ENDPOINT, [], "application/json", Payload}, [{timeout, 5000}], []
+        )
+    of
         {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} ->
             lager:info("Error sent. Response: ~p", [Body]);
         {_, {{_Version, Status, ReasonPhrase}, _Headers, _Body}} ->
