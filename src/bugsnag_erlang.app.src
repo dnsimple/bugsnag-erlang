@@ -1,8 +1,7 @@
-{application, bugsnag_erlang,
- [{description, "Bugsnag notifier"},
-  {licenses, ["MIT"]},
-  {vsn, "1.1.0"},
-  {mod, { bugsnag_app, []}},
-  {applications, [kernel, stdlib, inets, crypto, ssl, lager]}
-  ]}.
-
+{application, bugsnag_erlang, [
+    {description, "Bugsnag notifier"},
+    {licenses, ["MIT"]},
+    {vsn, "1.1.0"},
+    {mod, {bugsnag_app, []}},
+    {applications, [kernel, stdlib, inets, crypto, ssl, lager]}
+]}.
