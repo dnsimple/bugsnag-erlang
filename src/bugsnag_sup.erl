@@ -14,10 +14,10 @@
 
 %% Public API
 start_link(Args) ->
-  supervisor:start_link({local, ?SUPERVISOR}, ?MODULE, Args).
+    supervisor:start_link({local, ?SUPERVISOR}, ?MODULE, Args).
 
 init(Args) ->
-  {ok, {{one_for_one, 20, 10}, procs(Args)}}.
+    {ok, {{one_for_one, 20, 10}, procs(Args)}}.
 
 procs(disabled) ->
     %% bugsnag is disabled in the config
