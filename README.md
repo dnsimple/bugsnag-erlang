@@ -59,6 +59,14 @@ For example, simply add
 ```
 to your lager handler config.
 
+## Formatting
+
+To format the codebase:
+
+```shell
+make format
+```
+
 ## Thanks
 
 Thank you to Ken Pratt: his library https://github.com/kenpratt/erlbrake provided a lot of code for this library.
