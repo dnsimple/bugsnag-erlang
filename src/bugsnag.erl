@@ -18,8 +18,8 @@
 -define(NOTIFY_ENDPOINT, "https://notify.bugsnag.com").
 
 -define(NOTIFIER_NAME, <<"Bugsnag Erlang">>).
--define(NOTIFIER_VERSION, <<"1.1.0">>).
--define(NOTIFIER_URL, <<"https://github.com/aeden/bugsnag-erlang">>).
+-define(NOTIFIER_VERSION, <<"1.1.1">>).
+-define(NOTIFIER_URL, <<"https://github.com/dnsimple/bugsnag-erlang">>).
 
 % Public API
 start() ->
