@@ -6,7 +6,7 @@ Requires Lager.
 
 The following applications must be started:
 
-    lager, inets, crypto, ssl
+    kernel,stdlib,inets,crypto,ssl,lager
 
 ## Usage
 
