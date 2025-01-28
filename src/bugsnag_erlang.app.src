@@ -4,5 +4,5 @@
     {vsn, "1.1.1"},
     {mod, {bugsnag_app, []}},
     {applications, [kernel, stdlib, inets, crypto, ssl, lager]},
-    {links, [{"GitHub", "https://github.com/dnsimple/bugsnag-erlang"}]}]}.
+    {links, [{"GitHub", "https://github.com/dnsimple/bugsnag-erlang"}]}
 ]}.
