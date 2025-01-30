@@ -6,7 +6,9 @@ Requires Lager.
 
 The following applications must be started:
 
-    kernel,stdlib,inets,crypto,ssl,lager
+```text
+kernel,stdlib,inets,crypto,ssl,lager
+```
 
 ## Usage
 
@@ -16,19 +18,19 @@ You may send custom errors directly
 bugsnag:notify(error, fake, "Testing bugsnag with a manual error report", no_module, 0).
 ```
 
-Or use the Erlang error logger:
+Or use the Erlang error logger
 
 ```erlang
 error_logger:error_msg("A sample error caught by the bugsnag error logger.").
 ```
 
-Or cause an error with a full stack trace:
+Or cause an error with a full stack trace
 
 ```erlang
 bugsnag:test_error().
 ```
 
-When embedding, make sure to set up the configuration elements in your sys.config (or other config file):
+When embedding, make sure to set up the configuration elements in your sys.config (or other config file)
 
   ```erlang
   [
@@ -63,7 +65,7 @@ to your lager handler config.
 
 ## Formatting
 
-To format the codebase:
+To format the codebase
 
 ```shell
 make format
