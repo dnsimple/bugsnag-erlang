@@ -7,11 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## main
 
-## 1.1.1
+## 2.0.0
 
-- Added CONTRIBUTING.md
-- Added CHANGELOG.md
-- Added release process to hex.pm
+### Changed
+
+- Bumps to OTP/27
+- Replaced "jsx" with "json"
+
+### Added
+
+- erlfmt
+- CONTRIBUTING.md
+- CHANGELOG.md
+- release process to hex.pm
 
 ## 1.1.0
 

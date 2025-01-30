@@ -1,7 +1,7 @@
 {application, bugsnag_erlang, [
     {description, "Bugsnag notifier for Erlang applications."},
     {licenses, ["MIT"]},
-    {vsn, "1.1.1"},
+    {vsn, "2.0.0"},
     {mod, {bugsnag_app, []}},
     {applications, [kernel, stdlib, inets, crypto, ssl, lager]},
     {links, [{"GitHub", "https://github.com/dnsimple/bugsnag-erlang"}]}

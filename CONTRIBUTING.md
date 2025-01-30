@@ -75,7 +75,7 @@ The following instructions uses `$VERSION` as a placeholder, where `$VERSION` is
     git push origin --tags
     ```
 
-1. GitHub actions will take it from there and release to https://hex.pm/packages/bugsnag_erlang
+1. GitHub actions will take it from there and release to <https://hex.pm/packages/bugsnag_erlang>
 
 ## Tests
 
