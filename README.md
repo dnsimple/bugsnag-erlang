@@ -1,4 +1,4 @@
-# Bugsnag notifier for Erlang applications
+# Insight Hub (formerly Bugsnag) notifier for Erlang applications
 
 [![Build Status](https://github.com/dnsimple/bugsnag-erlang/actions/workflows/ci.yml/badge.svg)](https://github.com/dnsimple/bugsnag-erlang/actions/workflows/ci.yml)
 [![Module Version](https://img.shields.io/hexpm/v/bugsnag_erlang.svg)](https://hex.pm/packages/bugsnag_erlang)
