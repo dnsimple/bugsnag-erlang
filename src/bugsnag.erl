@@ -60,7 +60,7 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 % Internal API
-% See https://bugsnag.com/docs/notifier-api
+% See https://docs.bugsnag.com/api/error-reporting/#api-reference
 send_exception(_Type, Reason, Message, _Module, _Line, Trace, _Request, State) ->
     Payload = [
         {apiKey, to_bin(State#state.api_key)},
