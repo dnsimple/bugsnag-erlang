@@ -62,33 +62,29 @@ code_change(_OldVsn, State, _Extra) ->
 % Internal API
 % See https://docs.bugsnag.com/api/error-reporting/#api-reference
 send_exception(_Type, Reason, Message, _Module, _Line, Trace, _Request, State) ->
-    Payload = [
-        {apiKey, to_bin(State#state.api_key)},
-        {payloadVersion, <<"5">>},
-        {notifier, [
-            {name, ?NOTIFIER_NAME},
-            {version, ?NOTIFIER_VERSION},
-            {url, ?NOTIFIER_URL}
-        ]},
-        {events, [
-            [
-                {device, [
-                    {hostname, to_bin(net_adm:localhost())}
-                ]},
-                {app, [
-                    {releaseStage, to_bin(State#state.release_stage)}
-                ]},
-                {exceptions, [
-                    [
-                        {errorClass, to_bin(Reason)},
-                        {message, to_bin(Message)},
-                        {stacktrace, process_trace(Trace)}
-                    ]
-                ]}
-            ]
-        ]}
-    ],
-    deliver_payload(json:encode(Payload)).
+    Payload = json:encode(#{
+        <<"apiKey">> => to_bin(State#state.api_key),
+        <<"payloadVersion">> => <<"5">>,
+        <<"notifier">> => #{
+            <<"name">> => ?NOTIFIER_NAME,
+            <<"version">> => ?NOTIFIER_VERSION,
+            <<"url">> => ?NOTIFIER_URL
+        },
+        <<"events">> => #{
+            <<"device">> => #{
+                <<"hostname">> => to_bin(net_adm:localhost())
+            },
+            <<"app">> => #{
+                <<"releaseStage">> => to_bin(State#state.release_stage)
+            },
+            <<"exceptions">> => #{
+                <<"errorClass">> => to_bin(Reason),
+                <<"message">> => to_bin(Message),
+                <<"stacktrace">> => to_bin(process_trace([Trace]))
+            }
+        }
+    }),
+    deliver_payload(to_bin(Payload)).
 
 process_trace(Trace) ->
     lager:info("Processing trace ~p", [Trace]),
