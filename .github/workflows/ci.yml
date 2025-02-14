@@ -64,6 +64,8 @@ jobs:
 
     needs:
       - build
+      - markdownlint-cli
+      - yamllint
 
     steps:
       - uses: actions/checkout@v4
