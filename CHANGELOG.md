@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## main
 
+## 2.0.1
+
+### Fixed
+
+- Added customer encoder using OTP27 json
+
+### Changed
+
+- Requires markdownlint-cli & yamllint to pass in CI before test 
+
 ## 2.0.0
 
 ### Changed
