@@ -60,6 +60,12 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 % Internal API
+
+encoder([{_, _} | _] = Value, Encode) -> json:encode_key_value_list(Value, Encode);
+encoder(Other, Encode) -> json:encode_value(Other, Encode).
+
+custom_encode(Value) -> json:encode(Value, fun(Value, Encode) -> encoder(Value, Encode) end).
+
 % See https://docs.bugsnag.com/api/error-reporting/#api-reference
 send_exception(_Type, Reason, Message, _Module, _Line, Trace, _Request, State) ->
     Payload = [
@@ -88,7 +94,7 @@ send_exception(_Type, Reason, Message, _Module, _Line, Trace, _Request, State) -
             ]
         ]}
     ],
-    deliver_payload(json:encode(Payload)).
+    deliver_payload(iolist_to_binary(custom_encode(Payload))).
 
 process_trace(Trace) ->
     lager:info("Processing trace ~p", [Trace]),
