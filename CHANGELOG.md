@@ -9,22 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 2.0.1
 
-### Fixed
+Fixed:
 
 - Added customer encoder using OTP27 json
 
-### Changed
+Changed:
 
-- Requires markdownlint-cli & yamllint to pass in CI before test 
+- Requires markdownlint-cli & yamllint to pass in CI before test
 
 ## 2.0.0
 
-### Changed
+Changed:
 
 - Bumps to OTP/27
 - Replaced "jsx" with "json"
 
-### Added
+Added:
 
 - erlfmt
 - CONTRIBUTING.md
