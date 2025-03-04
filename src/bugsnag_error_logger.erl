@@ -7,7 +7,6 @@
     handle_call/2,
     handle_event/2,
     handle_info/2,
-    code_change/3,
     terminate/2
 ]).
 
@@ -33,9 +32,6 @@ handle_info(_Info, State) ->
 
 terminate(_Arg, _State) ->
     ok.
-
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
 
 % Private API
 handle_error_msg(_, _, "** Generic server " ++ _, Data, S) ->
