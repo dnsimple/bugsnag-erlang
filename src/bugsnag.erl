@@ -8,8 +8,7 @@
     init/1,
     handle_call/3,
     handle_cast/2,
-    handle_info/2,
-    terminate/2
+    handle_info/2
 ]).
 
 -record(state, {api_key, release_stage}).
@@ -51,9 +50,6 @@ handle_cast({test_error}, State) ->
 
 handle_info(_Message, State) ->
     {noreply, State}.
-
-terminate(_Reason, _State) ->
-    ok.
 
 % Internal API
 

@@ -6,8 +6,7 @@
     init/1,
     handle_call/2,
     handle_event/2,
-    handle_info/2,
-    terminate/2
+    handle_info/2
 ]).
 
 -record(state, {}).
@@ -29,9 +28,6 @@ handle_call(_Request, State) ->
 
 handle_info(_Info, State) ->
     {ok, State}.
-
-terminate(_Arg, _State) ->
-    ok.
 
 % Private API
 handle_error_msg(_, _, "** Generic server " ++ _, Data, S) ->
