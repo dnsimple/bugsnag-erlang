@@ -7,8 +7,7 @@
     handle_call/2,
     handle_event/2,
     handle_info/2,
-    terminate/2,
-    code_change/3
+    terminate/2
 ]).
 
 -record(state, {
@@ -47,9 +46,6 @@ handle_info(_Info, State) ->
 
 terminate(_Reason, _State) ->
     ok.
-
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
 
 notify(Message) ->
     ok = bugsnag:notify(
