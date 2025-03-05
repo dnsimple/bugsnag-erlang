@@ -1,4 +1,5 @@
 -module(bugsnag_error_logger).
+-moduledoc "An `m:error_logger` handler to report messages above a certain level to BugSnag".
 
 -behaviour(gen_event).
 
@@ -11,10 +12,12 @@
 
 % Callbacks
 
+-doc false.
 -spec init(_) -> {ok, no_state}.
 init(_InitArgs) ->
     {ok, no_state}.
 
+-doc false.
 -spec handle_event(term(), no_state) -> {ok, no_state}.
 handle_event({error, GroupLeader, {Pid, Format, Data}}, S) ->
     handle_error_msg(GroupLeader, Pid, Format, Data, S);
@@ -23,10 +26,12 @@ handle_event({error_report, GroupLeader, {Pid, Type, Report}}, S) ->
 handle_event(_Event, State) ->
     {ok, State}.
 
+-doc false.
 -spec handle_call(term(), no_state) -> {ok, term(), no_state}.
 handle_call(_Request, State) ->
     {ok, noreply, State}.
 
+-doc false.
 -spec handle_info(term(), no_state) -> {ok, no_state}.
 handle_info(_Info, State) ->
     {ok, State}.
