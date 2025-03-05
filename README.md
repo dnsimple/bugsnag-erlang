@@ -7,16 +7,6 @@
 [![License](https://img.shields.io/hexpm/l/dnsimple.svg)](https://github.com/dnsimple/bugsnag-erlang/blob/main/LICENSE.md)
 [![Last Updated](https://img.shields.io/github/last-commit/dnsimple/bugsnag-erlang.svg)](https://github.com/dnsimple/bugsnag-erlang/commits/main)
 
-## Dependencies
-
-Requires [Lager](https://github.com/erlang-lager/lager)
-
-The following applications must be started
-
-```text
-kernel,stdlib,inets,crypto,ssl,lager
-```
-
 ## Usage
 
 You may send custom errors directly
@@ -31,44 +21,35 @@ Or use the Erlang error logger
 error_logger:error_msg("A sample error caught by the bugsnag error logger.").
 ```
 
-Or cause an error with a full stack trace
+Or `logger`:
 
 ```erlang
-bugsnag:test_error().
+?LOG_ERROR(#{what => example_error, text => "A sample error caught by the bugsnag logger handler"}).
 ```
 
-When embedding, make sure to set up the configuration elements in your sys.config (or other config file)
+When embedding, make sure to set up the configuration elements in your `sys.config` (or other config file),
+See `m:bugsnag` for configuration details.
 
-  ```erlang
-  [
-    {bugsnag_erlang, [
-      {error_logger, true},
-      {api_key, "ENTER_API_KEY"},
-      {release_state, "development"}
-    ]}
-  ].
-  ```
+## Lager handler
 
-And start the application:
-
-  ```erlang
-  application:start(bugsnag)
-  ```
-
-Or add the application to your .app configuration.
-
-### Lager handler
-
-We also provide a [lager](https://github.com/basho/lager) to report anything
+We also provide a [lager](https://github.com/basho/lager) handler to report anything
 above a certain level (by default, `error`) to Bugsnag.
 
-For example, simply add
+For example, simply add to your `sys.config`
 
 ```erlang
 {bugsnag_lager_handler, critical}
 ```
 
 to your lager handler config.
+
+## Testing
+
+To test the codebase:
+
+```shell
+make test
+```
 
 ## Formatting
 
