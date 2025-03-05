@@ -1,4 +1,7 @@
 -module(bugsnag_app).
+
+-include_lib("kernel/include/logger.hrl").
+
 -behavior(application).
 
 -export([start/2, stop/1]).
@@ -9,15 +12,14 @@ start(_Type, _Args) ->
         true ->
             start();
         false ->
-            lager:info("Bugsnag notifier disabled"),
-            %% we still need to start the sup to comply with the application
-            %% behaviour
+            ?LOG_INFO(#{what => bugsnag_disabled}),
+            %% we still need to start the sup to comply with the application behaviour
             bugsnag_sup:start_link(disabled)
     end.
 
 -spec start() -> supervisor:startlink_ret().
 start() ->
-    lager:info("Starting bugsnag notifier"),
+    ?LOG_INFO(#{what => starting_bugsnag}),
     ReleaseState =
         case application:get_env(bugsnag_erlang, release_state) of
             {ok, Value} -> Value;
@@ -40,5 +42,5 @@ start() ->
 
 -spec stop(_) -> ok.
 stop(_State) ->
-    lager:info("Stopping bugsnag notifier"),
+    ?LOG_INFO(#{what => stopping_bugsnag}),
     ok.

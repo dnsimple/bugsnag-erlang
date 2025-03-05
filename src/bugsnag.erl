@@ -1,4 +1,7 @@
 -module(bugsnag).
+
+-include_lib("kernel/include/logger.hrl").
+
 -behavior(gen_server).
 
 -export([start_link/2, notify/5, notify/7]).
@@ -108,7 +111,7 @@ send_exception(_Type, Reason, Message, _Module, _Line, Trace, _Request, State) -
     deliver_payload(iolist_to_binary(custom_encode(Payload))).
 
 process_trace(Trace) ->
-    lager:info("Processing trace ~p", [Trace]),
+    ?LOG_INFO(#{what => processing_trace, trace => Trace}),
     process_trace(Trace, []).
 
 process_trace([], ProcessedTrace) ->
@@ -127,22 +130,22 @@ process_trace([Current | Rest], ProcessedTrace) ->
                     {method, to_bin(F)}
                 ];
             _ ->
-                lager:warning("Discarding stack trace line: ~p", [Current]),
+                ?LOG_WARNING(#{what => discarding_stack_trace_line, line => Current}),
                 []
         end,
     process_trace(Rest, ProcessedTrace ++ [StackTraceLine]).
 
 deliver_payload(Payload) ->
-    lager:info("Sending exception: ~p", [Payload]),
+    ?LOG_INFO(#{what => sending_exception, exception => Payload}),
     case
         httpc:request(
             post, {?NOTIFY_ENDPOINT, [], "application/json", Payload}, [{timeout, 5000}], []
         )
     of
         {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} ->
-            lager:info("Error sent. Response: ~p", [Body]);
+            ?LOG_INFO(#{what => received_response, response => Body});
         {_, {{_Version, Status, ReasonPhrase}, _Headers, _Body}} ->
-            lager:warning("Failed to send error to bugsnag (~p : ~p)", [Status, ReasonPhrase])
+            ?LOG_WARNING(#{what => send_status_failed, status => Status, reason => ReasonPhrase})
     end,
 
     ok.
@@ -157,7 +160,7 @@ to_bin(List) when erlang:is_list(List) ->
     erlang:iolist_to_binary(List).
 
 generate_trace() ->
-    lager:info("Generating trace"),
+    ?LOG_INFO(#{what => generating_trace}),
     try
         throw(bugsnag_gen_trace)
     catch
