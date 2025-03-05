@@ -12,6 +12,8 @@ clean:
 .PHONY: test
 test: all
 	rebar3 fmt --check
+	rebar3 xref
+	rebar3 dialyzer
 
 .PHONY: fresh
 fresh:
