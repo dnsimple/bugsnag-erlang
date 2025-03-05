@@ -1,11 +1,7 @@
-# Insight Hub (formerly Bugsnag) notifier for Erlang applications
+# Insight Hub (Bugsnag) notifier for Erlang
 
 [![Build Status](https://github.com/dnsimple/bugsnag-erlang/actions/workflows/ci.yml/badge.svg)](https://github.com/dnsimple/bugsnag-erlang/actions/workflows/ci.yml)
 [![Module Version](https://img.shields.io/hexpm/v/bugsnag_erlang.svg)](https://hex.pm/packages/bugsnag_erlang)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/dnsimple/)
-[![Total Download](https://img.shields.io/hexpm/dt/dnsimple.svg)](https://hex.pm/packages/bugsnag_erlang)
-[![License](https://img.shields.io/hexpm/l/dnsimple.svg)](https://github.com/dnsimple/bugsnag-erlang/blob/main/LICENSE.md)
-[![Last Updated](https://img.shields.io/github/last-commit/dnsimple/bugsnag-erlang.svg)](https://github.com/dnsimple/bugsnag-erlang/commits/main)
 
 ## Dependencies
 
