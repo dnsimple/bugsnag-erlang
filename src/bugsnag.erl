@@ -2,7 +2,7 @@
 
 -include_lib("kernel/include/logger.hrl").
 
--behavior(gen_server).
+-behaviour(gen_server).
 
 -export([start_link/2, notify/5, notify/7]).
 -ignore_xref([start_link/2]).
@@ -23,11 +23,14 @@
     api_key :: string(),
     release_stage :: string()
 }).
--type state() :: #state{}.
+-opaque state() :: #state{}.
 
 -type payload() ::
-    {exception, atom(), atom() | string(), string() | binary(), atom(), non_neg_integer(), [term()], term()}
+    {exception, atom(), atom() | string(), string() | binary(), atom(), non_neg_integer(), [term()],
+        term()}
     | test_error.
+
+-export_type([opts/0, state/0, payload/0]).
 
 -define(NOTIFY_ENDPOINT, "https://notify.bugsnag.com").
 -define(NOTIFIER_NAME, <<"Bugsnag Erlang">>).
@@ -42,7 +45,9 @@ start_link(ApiKey, ReleaseStage) ->
 notify(Type, Reason, Message, Module, Line) ->
     notify(Type, Reason, Message, Module, Line, generate_trace(), undefined).
 
--spec notify(atom(), atom() | string(), string() | binary(), module(), non_neg_integer(), [term()], term()) -> ok.
+-spec notify(
+    atom(), atom() | string(), string() | binary(), module(), non_neg_integer(), [term()], term()
+) -> ok.
 notify(Type, Reason, Message, Module, Line, Trace, Request) ->
     gen_server:cast(?MODULE, {exception, Type, Reason, Message, Module, Line, Trace, Request}).
 
@@ -86,8 +91,8 @@ custom_encode(Value) ->
 % See https://docs.bugsnag.com/api/error-reporting/#api-reference
 send_exception(_Type, Reason, Message, _Module, _Line, Trace, _Request, State) ->
     Payload = [
-        {apiKey, to_bin(State#state.api_key)},
-        {payloadVersion, <<"5">>},
+        {'apiKey', to_bin(State#state.api_key)},
+        {'payloadVersion', <<"5">>},
         {notifier, [
             {name, ?NOTIFIER_NAME},
             {version, ?NOTIFIER_VERSION},
@@ -99,11 +104,11 @@ send_exception(_Type, Reason, Message, _Module, _Line, Trace, _Request, State) -
                     {hostname, to_bin(net_adm:localhost())}
                 ]},
                 {app, [
-                    {releaseStage, to_bin(State#state.release_stage)}
+                    {'releaseStage', to_bin(State#state.release_stage)}
                 ]},
                 {exceptions, [
                     [
-                        {errorClass, to_bin(Reason)},
+                        {'errorClass', to_bin(Reason)},
                         {message, to_bin(Message)},
                         {stacktrace, process_trace(Trace)}
                     ]
@@ -125,7 +130,7 @@ process_trace([Current | Rest], ProcessedTrace) ->
             {_, F, _, [{file, File}, {line, Line}]} ->
                 [
                     {file, to_bin(File)},
-                    {lineNumber, Line},
+                    {'lineNumber', Line},
                     {method, to_bin(F)}
                 ];
             {_, F, _} ->

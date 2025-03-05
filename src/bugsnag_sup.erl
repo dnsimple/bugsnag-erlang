@@ -1,13 +1,12 @@
 -module(bugsnag_sup).
--behavior(supervisor).
 
-% API
+-behaviour(supervisor).
+
 -export([start_link/1]).
-
-% Supervisor hooks
 -export([init/1]).
 
 -type opts() :: disabled | {string(), string()}.
+-export_type([opts/0]).
 
 -spec start_link(opts()) -> supervisor:startlink_ret().
 start_link(Args) ->
