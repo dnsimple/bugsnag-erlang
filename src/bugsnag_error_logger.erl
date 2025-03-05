@@ -9,13 +9,13 @@
     handle_info/2
 ]).
 
--record(state, {}).
-
 % Callbacks
 
+-spec init(_) -> {ok, no_state}.
 init(_InitArgs) ->
-    {ok, #state{}}.
+    {ok, no_state}.
 
+-spec handle_event(term(), no_state) -> {ok, no_state}.
 handle_event({error, GroupLeader, {Pid, Format, Data}}, S) ->
     handle_error_msg(GroupLeader, Pid, Format, Data, S);
 handle_event({error_report, GroupLeader, {Pid, Type, Report}}, S) ->
@@ -23,9 +23,11 @@ handle_event({error_report, GroupLeader, {Pid, Type, Report}}, S) ->
 handle_event(_Event, State) ->
     {ok, State}.
 
+-spec handle_call(term(), no_state) -> {ok, term(), no_state}.
 handle_call(_Request, State) ->
     {ok, noreply, State}.
 
+-spec handle_info(term(), no_state) -> {ok, no_state}.
 handle_info(_Info, State) ->
     {ok, State}.
 
