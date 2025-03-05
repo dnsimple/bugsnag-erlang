@@ -12,7 +12,8 @@
 -record(state, {
     level :: {mask, integer()}
 }).
--type state() :: #state{}.
+-opaque state() :: #state{}.
+-export_type([state/0]).
 
 -define(DEFAULT_LEVEL, error).
 

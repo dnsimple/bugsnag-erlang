@@ -92,7 +92,7 @@ handle_error_msg(_, _, Format, Data, S) ->
 handle_error_report(_, _, supervisor_report, Report, S) ->
     case lists:sort(Report) of
         [
-            {errorContext, Context},
+            {'errorContext', Context},
             {offender, Offender},
             {reason, Reason},
             {supervisor, Name}
@@ -205,16 +205,13 @@ format_message(Fmt, Args) ->
     %% binary_to_list(Binary).
     Binary.
 
-format_mfa({M, F, A} = MFA) ->
-    if
-        is_list(A) ->
-            {FmtStr, Args} = format_args(A, [], []),
-            io_lib:format("~w:~w(" ++ FmtStr ++ ")", [M, F | Args]);
-        is_integer(A) ->
-            io_lib:format("~w:~w/~w", [M, F, A]);
-        true ->
-            io_lib:format("~w", [MFA])
-    end;
+format_mfa({M, F, A}) when is_list(A) ->
+    {FmtStr, Args} = format_args(A, [], []),
+    io_lib:format("~w:~w(" ++ FmtStr ++ ")", [M, F | Args]);
+format_mfa({M, F, A}) when is_integer(A) ->
+    io_lib:format("~w:~w/~w", [M, F, A]);
+format_mfa({_M, _F, _A} = MFA) ->
+    io_lib:format("~w", [MFA]);
 format_mfa({M, F, A, _}) ->
     format_mfa({M, F, A});
 format_mfa(Other) ->
