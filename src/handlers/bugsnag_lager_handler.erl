@@ -1,5 +1,6 @@
-%% A lager handler to report messages above a certain level to bugsnag
 -module(bugsnag_lager_handler).
+-moduledoc "A lager handler to report messages above a certain level to BugSnag".
+
 -behaviour(gen_event).
 
 -export([
@@ -12,11 +13,13 @@
 -record(state, {
     level :: {mask, integer()}
 }).
+-doc "State of the lager handler `gen_event` worker".
 -opaque state() :: #state{}.
 -export_type([state/0]).
 
 -define(DEFAULT_LEVEL, error).
 
+-doc false.
 -spec init(atom() | proplists:proplist()) -> {ok, state()}.
 init(Level) when is_atom(Level) ->
     init([{level, Level}]);
@@ -24,6 +27,7 @@ init(Options) ->
     Level = proplists:get_value(level, Options, ?DEFAULT_LEVEL),
     {ok, #state{level = lager_util:config_to_mask(Level)}}.
 
+-doc false.
 -spec handle_call(term(), state()) -> {ok, term(), state()}.
 handle_call(get_loglevel, #state{level = Level} = State) ->
     {ok, Level, State};
@@ -32,6 +36,7 @@ handle_call({set_loglevel, Level}, State) when is_atom(Level); is_list(Level) ->
 handle_call(_Request, State) ->
     {ok, ok, State}.
 
+-doc false.
 -spec handle_event(term(), state()) -> {ok, state()}.
 handle_event({log, Message}, #state{level = Level} = State) ->
     case lager_util:is_loggable(Message, Level, ?MODULE) of
@@ -44,6 +49,7 @@ handle_event({log, Message}, #state{level = Level} = State) ->
 handle_event(_Event, State) ->
     {ok, State}.
 
+-doc false.
 -spec handle_info(term(), state()) -> {ok, state()}.
 handle_info(_Info, State) ->
     {ok, State}.
