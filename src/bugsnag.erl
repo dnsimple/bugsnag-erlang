@@ -23,8 +23,11 @@ If a new handler wants to be added, the `handler_name` key can be set to a new a
 
 """.
 
--export([start_link/2]).
+-export([start_link/2, add_handler/1, remove_handler/1]).
 -export([notify/5, notify/7]).
+-deprecated([{start_link, 2, next_major_release}]).
+-deprecated([{notify, 5, next_major_release}]).
+-deprecated([{notify, 7, next_major_release}]).
 
 -doc """
 Configuration options for the Bugsnag client.
@@ -47,8 +50,22 @@ It takes the following configuration options:
 
 -export_type([config/0]).
 
+-doc "Add a new logger handler.".
+-spec add_handler(config()) -> supervisor:startchild_ret().
+add_handler(Config) ->
+    bugsnag_sup:add_handler(Config).
+
+-doc "Remove a new logger handler.".
+-spec remove_handler(config()) -> ok | {error, term()}.
+remove_handler(#{name := Name}) ->
+    bugsnag_sup:remove_handler(Name);
+remove_handler(Name) ->
+    bugsnag_sup:remove_handler(Name).
+
 -doc """
 Add a new global `bugsnag_logger_handler` handler.
+
+This is deprecated, `add_handler/1` is preferred.
 """.
 -spec start_link(binary(), atom()) -> gen_server:start_ret().
 start_link(ApiKey, ReleaseStage) ->

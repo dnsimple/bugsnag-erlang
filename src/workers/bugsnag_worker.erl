@@ -10,7 +10,7 @@
 -deprecated([{start_link, 1, "To be removed when we remove support for lager and error_logger"}]).
 
 -ifdef(TEST).
--export([test_error/0]).
+-export([deliver_payload/1, test_error/0]).
 -endif.
 
 -export([
