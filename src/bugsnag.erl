@@ -75,10 +75,13 @@ handle_info(_Message, State) ->
 
 % Internal API
 
-encoder([{_, _} | _] = Value, Encode) -> json:encode_key_value_list(Value, Encode);
-encoder(Other, Encode) -> json:encode_value(Other, Encode).
+encoder([{_, _} | _] = Value, Encode) ->
+    json:encode_key_value_list(Value, Encode);
+encoder(Other, Encode) ->
+    json:encode_value(Other, Encode).
 
-custom_encode(Value) -> json:encode(Value, fun(Value, Encode) -> encoder(Value, Encode) end).
+custom_encode(Value) ->
+    json:encode(Value, fun(V, Encode) -> encoder(V, Encode) end).
 
 % See https://docs.bugsnag.com/api/error-reporting/#api-reference
 send_exception(_Type, Reason, Message, _Module, _Line, Trace, _Request, State) ->
