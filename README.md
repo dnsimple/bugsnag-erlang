@@ -66,9 +66,15 @@ For example, simply add
 
 to your lager handler config.
 
+## Testing
+
+```shell
+make test
+```
+
 ## Formatting
 
-To format the codebase
+If your editor doesn't automatically format Erlang code using [erlfmt](https://github.com/WhatsApp/erlfmt), run:
 
 ```shell
 make format

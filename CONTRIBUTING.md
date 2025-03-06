@@ -1,51 +1,17 @@
 # Contributing to bugsnag-erlang
 
-## Getting started
+## Testing
 
-### 1. Clone the repository
+Submit unit tests for your changes. You can test your changes on your machine by [running the test suite](README.md#testing):
 
-Clone the repository and move into it:
-
-```shell
-git clone git@github.com:dnsimple/bugsnag-erlang.git
-cd bugsnag-erlang
+```
+make test
 ```
 
-### 2. Install Erlang
-
-### 3. Install the dependencies
-
-```shell
-make
-```
-
-#### Updating Dependencies
-
-When dependencies are updated the rebar.lock file will need to be updated for the new dependency to be used. The following command does this:
-
-```shell
-./rebar3 upgrade --all
-```
-
-## Formatting
-
-If your editor doesn't automatically format Erlang code using [erlfmt](https://github.com/WhatsApp/erlfmt), run:
-
-```shell
-make format
-```
+When you submit a PR, tests will also be run on the continuous integration environment [via GitHub Actions](https://github.com/dnsimple/bugsnag-erlang/actions/workflows/ci.yml).
 
 You should run this command before releasing.
 
-### 3. Build and test
-
-Compile the project and [run the test suite](#testing) to check everything works as expected.
-
-## Testing
-
-```shell
-make test
-```
 
 ## Releasing
 
@@ -76,9 +42,3 @@ The following instructions uses `$VERSION` as a placeholder, where `$VERSION` is
     ```
 
 1. GitHub actions will take it from there and release to <https://hex.pm/packages/bugsnag_erlang>
-
-## Tests
-
-Submit unit tests for your changes. You can test your changes on your machine by [running the test suite](#testing).
-
-When you submit a PR, tests will also be run on the [continuous integration environment via GitHub Actions](https://github.com/dnsimple/dnsimple-ruby/actions/workflows/ci.yml).
