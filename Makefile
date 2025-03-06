@@ -1,23 +1,17 @@
-REBAR:=$(shell which rebar3 || echo ./rebar3)
-REBAR_URL:="https://s3.amazonaws.com/rebar3/rebar3"
-
 all: build
 
-$(REBAR):
-	wget $(REBAR_URL) && chmod +x rebar3
-
 .PHONY: build
-build: $(REBAR)
-	@$(REBAR) compile
+build:
+	rebar3 compile
 
 .PHONY: clean
-clean: $(REBAR)
+clean:
 	rm -Rf deps
-	@$(REBAR) clean
+	rebar3 clean
 
 .PHONY: test
-test: $(REBAR) all
-	@$(REBAR) fmt --check
+test: all
+	rebar3 fmt --check
 
 .PHONY: fresh
 fresh:
@@ -25,4 +19,4 @@ fresh:
 
 .PHONY: format
 format: build
-	@$(REBAR) fmt
+	rebar3 fmt
