@@ -3,16 +3,24 @@
 BugSnag Erlang client.
 
 ## Configuration
-It can be configured using application environment variables.
+It can be configured using application environment variables or by passing a map to the
+`start_link/1` function.
+
+If using application environment variables, the config looks like the following:
 ```erlang
 {bugsnag_erlang, [
     {enabled, true},
     {api_key, "BUGSNAG_API_KEY"},
-    {release_stage, "production"}
+    {release_stage, "production"},
+    {handler_name, bugsnag_logger_handler},
+    {pool_size, 10}
 ]}
 ```
 If `enabled` is set to other than true, the rest of the configuration won't be read
 and no handler will be registered. For the rest of the keys, see `t:config/0`.
+
+If a new handler wants to be added, the `handler_name` key can be set to a new atom
+
 """.
 
 -export([start_link/2]).
@@ -25,10 +33,16 @@ It takes the following configuration options:
 
 - `api_key`: the Bugsnag API key, mandatory to provide.
 - `release_stage`: the release stage of the application, defaults to `production`
+- `name`: defaults to `bugsnag_logger_handler`, but allows to create more `logger` handlers
+    with different configurations.
+- `pool_size`: defaults to the number of schedulers, increases the number of workers in the pool
+    in case of high load.
 """.
 -type config() :: #{
     api_key := binary(),
-    release_stage := atom()
+    release_stage := atom(),
+    name := logger_handler:id(),
+    pool_size := pos_integer()
 }.
 
 -export_type([config/0]).
@@ -36,11 +50,13 @@ It takes the following configuration options:
 -doc """
 Add a new global `bugsnag_logger_handler` handler.
 """.
--spec start_link(string(), string()) -> gen_server:start_ret().
+-spec start_link(binary(), atom()) -> gen_server:start_ret().
 start_link(ApiKey, ReleaseStage) ->
     bugsnag_worker:start_link(#{
-        api_key => list_to_binary(ApiKey),
-        release_stage => list_to_existing_atom(ReleaseStage)
+        name => bugsnag_logger_handler,
+        pool_size => 1,
+        api_key => ApiKey,
+        release_stage => ReleaseStage
     }).
 
 -doc "Notify a global worker about an exception.".
