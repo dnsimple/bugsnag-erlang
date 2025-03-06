@@ -36,7 +36,7 @@ jobs:
     strategy:
       matrix:
         otp: ['27']
-        rebar3: ['3.24.0']
+        rebar3: ['3.24']
     runs-on: 'ubuntu-24.04'
     steps:
       - uses: actions/checkout@v4
