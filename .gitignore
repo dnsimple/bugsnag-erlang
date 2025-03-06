@@ -5,3 +5,4 @@ sys.config
 rebar3
 .rebar3
 /_build
+.tool-versions
