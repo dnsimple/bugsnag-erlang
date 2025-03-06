@@ -16,6 +16,7 @@ test: all
 	rebar3 xref
 	rebar3 dialyzer
 	rebar3 ex_doc
+	rebar3 ct
 
 .PHONY: fresh
 fresh:
