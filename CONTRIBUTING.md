@@ -13,6 +13,15 @@ When you submit a PR, tests will also be run on the continuous integration envir
 You should run this command before releasing.
 
 
+## Formatting
+
+If your editor doesn't automatically format Erlang code using [erlfmt](https://github.com/WhatsApp/erlfmt), run:
+
+```shell
+make format
+```
+
+
 ## Releasing
 
 The following instructions uses `$VERSION` as a placeholder, where `$VERSION` is a `MAJOR.MINOR.BUGFIX` release such as `1.2.0`.

@@ -72,14 +72,6 @@ to your lager handler config.
 make test
 ```
 
-## Formatting
-
-If your editor doesn't automatically format Erlang code using [erlfmt](https://github.com/WhatsApp/erlfmt), run:
-
-```shell
-make format
-```
-
 ## Thanks
 
 Thank you to Ken Pratt: his library <https://github.com/kenpratt/erlbrake> provided a lot of code for this library.
