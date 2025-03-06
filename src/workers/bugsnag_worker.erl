@@ -5,10 +5,12 @@
 
 -behaviour(gen_server).
 
--export([start_link/1]).
+-export([start_link/1, start_link/2, notify_worker/2]).
+
+-deprecated([{start_link, 1, "To be removed when we remove support for lager and error_logger"}]).
 
 -ifdef(TEST).
--export([test_error/0]).
+-export([deliver_payload/1, test_error/0]).
 -endif.
 
 -export([
@@ -45,7 +47,17 @@
 
 -spec start_link(bugsnag:config()) -> gen_server:start_ret().
 start_link(Config) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, Config, []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, {undefined, Config}, []).
+
+-spec start_link(pos_integer(), bugsnag:config()) -> gen_server:start_ret().
+start_link(N, Config) ->
+    gen_server:start_link(?MODULE, {N, Config}, []).
+
+-spec notify_worker(bugsnag:config(), payload()) -> ok.
+notify_worker(#{name := Name, pool_size := PoolSize}, Payload) ->
+    Int = 1 + erlang:phash2(self(), PoolSize),
+    Pid = ets:lookup_element(Name, Int, 2),
+    gen_server:cast(Pid, {payload, Payload}).
 
 -ifdef(TEST).
 -spec test_error() -> ok.
@@ -54,8 +66,13 @@ test_error() ->
 -endif.
 
 % Gen server hooks
--spec init(bugsnag:config()) -> {ok, state()}.
-init(#{api_key := ApiKey, release_stage := ReleaseStage}) ->
+-spec init({undefined | pos_integer(), bugsnag:config()}) -> {ok, state()}.
+init({undefined, #{api_key := ApiKey, release_stage := ReleaseStage}}) ->
+    process_flag(trap_exit, true),
+    {ok, #state{api_key = ApiKey, release_stage = ReleaseStage}};
+init({N, #{name := Name, api_key := ApiKey, release_stage := ReleaseStage}}) ->
+    process_flag(trap_exit, true),
+    ets:insert(Name, {N, self()}),
     {ok, #state{api_key = ApiKey, release_stage = ReleaseStage}}.
 
 -spec handle_cast(payload(), state()) -> {noreply, state()}.
@@ -75,6 +92,8 @@ handle_cast(
     {noreply, State};
 handle_cast(test_error, State) ->
     erlang:error(test_error),
+    {noreply, State};
+handle_cast(_, State) ->
     {noreply, State}.
 
 -spec handle_call(term(), gen_server:from(), state()) -> {reply, ok, state()}.
