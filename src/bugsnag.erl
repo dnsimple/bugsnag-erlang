@@ -28,7 +28,7 @@ It takes the following configuration options:
 """.
 -type config() :: #{
     api_key := binary(),
-    release_stage := atom()
+    release_stage := binary()
 }.
 
 -export_type([config/0]).
@@ -36,7 +36,7 @@ It takes the following configuration options:
 -doc """
 Add a new global `bugsnag_logger_handler` handler.
 """.
--spec start_link(binary(), atom()) -> gen_server:start_ret().
+-spec start_link(binary(), binary()) -> gen_server:start_ret().
 start_link(ApiKey, ReleaseStage) ->
     bugsnag_worker:start_link(#{
         api_key => ApiKey,

@@ -37,7 +37,7 @@ start() ->
             end,
             Opts = #{
                 api_key => list_to_binary(ApiKey),
-                release_stage => list_to_existing_atom(ReleaseState)
+                release_stage => list_to_binary(ReleaseState)
             },
             bugsnag_sup:start_link(Opts);
         undefined ->

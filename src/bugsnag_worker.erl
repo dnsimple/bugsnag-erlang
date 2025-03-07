@@ -20,7 +20,7 @@
 
 -record(state, {
     api_key :: binary(),
-    release_stage :: atom()
+    release_stage :: binary()
 }).
 -opaque state() :: #state{}.
 
