@@ -4,7 +4,7 @@
 
 Submit unit tests for your changes. You can test your changes on your machine by [running the test suite](README.md#testing):
 
-```
+```shell
 make test
 ```
 
