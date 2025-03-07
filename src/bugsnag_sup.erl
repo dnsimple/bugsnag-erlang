@@ -5,7 +5,7 @@
 -export([start_link/1]).
 -export([init/1]).
 
--type opts() :: disabled | {string(), string()}.
+-type opts() :: disabled | bugsnag:config().
 -export_type([opts/0]).
 
 -spec start_link(opts()) -> supervisor:startlink_ret().
@@ -22,13 +22,13 @@ init(Args) ->
 procs(disabled) ->
     %% bugsnag is disabled in the config
     [];
-procs({ApiKey, ReleaseState}) ->
+procs(Config) ->
     Child = #{
-        id => bugsnag,
-        start => {bugsnag, start_link, [ApiKey, ReleaseState]},
+        id => bugsnag_worker,
+        start => {bugsnag_worker, start_link, [Config]},
         restart => permanent,
         shutdown => 5000,
         type => worker,
-        modules => [bugsnag]
+        modules => [bugsnag_worker]
     },
     [Child].
