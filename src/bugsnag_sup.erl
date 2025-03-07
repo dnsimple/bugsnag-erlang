@@ -1,26 +1,34 @@
 -module(bugsnag_sup).
--behavior(supervisor).
 
-% API
+-behaviour(supervisor).
+
 -export([start_link/1]).
-
-% Supervisor hooks
 -export([init/1]).
 
--define(SUPERVISOR, ?MODULE).
+-type opts() :: disabled | {string(), string()}.
+-export_type([opts/0]).
 
-%% Helper macro for declaring children of supervisor
--define(CHILD(I, Type, Args), {I, {I, start_link, Args}, permanent, 5000, Type, [I]}).
-
-%% Public API
+-spec start_link(opts()) -> supervisor:startlink_ret().
 start_link(Args) ->
-    supervisor:start_link({local, ?SUPERVISOR}, ?MODULE, Args).
+    supervisor:start_link({local, ?MODULE}, ?MODULE, Args).
 
+-spec init(opts()) -> {ok, {supervisor:sup_flags(), [supervisor:child_spec()]}}.
 init(Args) ->
-    {ok, {{one_for_one, 20, 10}, procs(Args)}}.
+    Strategy = #{strategy => one_for_one, intensity => 20, period => 10},
+    Children = procs(Args),
+    {ok, {Strategy, Children}}.
 
+-spec procs(opts()) -> [supervisor:child_spec()].
 procs(disabled) ->
     %% bugsnag is disabled in the config
     [];
 procs({ApiKey, ReleaseState}) ->
-    [?CHILD(bugsnag, worker, [ApiKey, ReleaseState])].
+    Child = #{
+        id => bugsnag,
+        start => {bugsnag, start_link, [ApiKey, ReleaseState]},
+        restart => permanent,
+        shutdown => 5000,
+        type => worker,
+        modules => [bugsnag]
+    },
+    [Child].

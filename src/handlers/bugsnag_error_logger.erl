@@ -1,4 +1,5 @@
 -module(bugsnag_error_logger).
+-moduledoc "An `m:error_logger` handler to report messages above a certain level to BugSnag".
 
 -behaviour(gen_event).
 
@@ -6,18 +7,18 @@
     init/1,
     handle_call/2,
     handle_event/2,
-    handle_info/2,
-    code_change/3,
-    terminate/2
+    handle_info/2
 ]).
-
--record(state, {}).
 
 % Callbacks
 
+-doc false.
+-spec init(_) -> {ok, no_state}.
 init(_InitArgs) ->
-    {ok, #state{}}.
+    {ok, no_state}.
 
+-doc false.
+-spec handle_event(term(), no_state) -> {ok, no_state}.
 handle_event({error, GroupLeader, {Pid, Format, Data}}, S) ->
     handle_error_msg(GroupLeader, Pid, Format, Data, S);
 handle_event({error_report, GroupLeader, {Pid, Type, Report}}, S) ->
@@ -25,16 +26,14 @@ handle_event({error_report, GroupLeader, {Pid, Type, Report}}, S) ->
 handle_event(_Event, State) ->
     {ok, State}.
 
+-doc false.
+-spec handle_call(term(), no_state) -> {ok, term(), no_state}.
 handle_call(_Request, State) ->
     {ok, noreply, State}.
 
+-doc false.
+-spec handle_info(term(), no_state) -> {ok, no_state}.
 handle_info(_Info, State) ->
-    {ok, State}.
-
-terminate(_Arg, _State) ->
-    ok.
-
-code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 % Private API
@@ -98,7 +97,7 @@ handle_error_msg(_, _, Format, Data, S) ->
 handle_error_report(_, _, supervisor_report, Report, S) ->
     case lists:sort(Report) of
         [
-            {errorContext, Context},
+            {'errorContext', Context},
             {offender, Offender},
             {reason, Reason},
             {supervisor, Name}
@@ -211,16 +210,13 @@ format_message(Fmt, Args) ->
     %% binary_to_list(Binary).
     Binary.
 
-format_mfa({M, F, A} = MFA) ->
-    if
-        is_list(A) ->
-            {FmtStr, Args} = format_args(A, [], []),
-            io_lib:format("~w:~w(" ++ FmtStr ++ ")", [M, F | Args]);
-        is_integer(A) ->
-            io_lib:format("~w:~w/~w", [M, F, A]);
-        true ->
-            io_lib:format("~w", [MFA])
-    end;
+format_mfa({M, F, A}) when is_list(A) ->
+    {FmtStr, Args} = format_args(A, [], []),
+    io_lib:format("~w:~w(" ++ FmtStr ++ ")", [M, F | Args]);
+format_mfa({M, F, A}) when is_integer(A) ->
+    io_lib:format("~w:~w/~w", [M, F, A]);
+format_mfa({_M, _F, _A} = MFA) ->
+    io_lib:format("~w", [MFA]);
 format_mfa({M, F, A, _}) ->
     format_mfa({M, F, A});
 format_mfa(Other) ->
