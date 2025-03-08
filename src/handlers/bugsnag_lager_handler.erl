@@ -1,5 +1,6 @@
 -module(bugsnag_lager_handler).
--moduledoc "A lager handler to report messages above a certain level to BugSnag".
+-moduledoc "A `m:lager` handler to report messages above a certain level to BugSnag".
+-deprecated({'_', '_', next_major_release}).
 
 -behaviour(gen_event).
 

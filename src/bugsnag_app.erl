@@ -33,7 +33,9 @@ do_start() ->
             maybe_set_error_logger(),
             Opts = #{
                 api_key => ApiKey,
-                release_stage => get_release_state()
+                release_stage => get_release_state(),
+                name => get_handler_name(),
+                pool_size => get_pool_size()
             },
             bugsnag_sup:start_link(Opts)
     end.
@@ -55,7 +57,7 @@ get_release_state() ->
             list_to_binary(MaybeValue);
         false ->
             case is_atom(MaybeValue) of
-                true -> atom_to_binary(MaybeValue);
+                true -> atom_to_binary(MaybeValue, utf8);
                 false -> <<"production">>
             end
     end.
@@ -74,4 +76,22 @@ get_api_key() ->
                 true -> list_to_binary(Value);
                 false -> error
             end
+    end.
+
+-spec get_handler_name() -> atom().
+get_handler_name() ->
+    case application:get_env(bugsnag_erlang, handler_name) of
+        undefined ->
+            bugsnag_logger_handler;
+        {ok, Value} when is_atom(Value) ->
+            Value
+    end.
+
+-spec get_pool_size() -> pos_integer().
+get_pool_size() ->
+    case application:get_env(bugsnag_erlang, pool_size) of
+        undefined ->
+            erlang:system_info(schedulers);
+        {ok, Value} when is_integer(Value), Value >= 1 ->
+            Value
     end.
