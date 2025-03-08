@@ -1,5 +1,6 @@
 -module(bugsnag_error_logger).
 -moduledoc "An `m:error_logger` handler to report messages above a certain level to BugSnag".
+-deprecated({'_', '_', next_major_release}).
 
 -behaviour(gen_event).
 
