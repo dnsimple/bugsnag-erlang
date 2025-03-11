@@ -4,7 +4,7 @@
 [![Module Version](https://img.shields.io/hexpm/v/bugsnag_erlang.svg)](https://hex.pm/packages/bugsnag_erlang)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/bugsnag_erlang/)
 [![Hex Downloads](https://img.shields.io/hexpm/dt/bugsnag_erlang.svg?maxAge=2592000)](https://hex.pm/packages/bugsnag_erlang)
-[![Coverage Status](https://coveralls.io/repos/github/dnsimple/bugsnag-erlang/badge.svg?branch=logger_handler)](https://coveralls.io/github/dnsimple/bugsnag-erlang?branch=logger_handler)
+[![Coverage Status](https://coveralls.io/repos/github/dnsimple/bugsnag-erlang/badge.svg?branch=main)](https://coveralls.io/github/dnsimple/bugsnag-erlang?branch=main)
 
 ## Usage
 
