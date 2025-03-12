@@ -29,12 +29,12 @@
 
 -export([start_link/1, init/1]).
 
--spec start_link(bugsnag:config()) -> supervisor:startlink_ret().
-start_link(#{name := Name} = Config) ->
-    supervisor:start_link({local, Name}, ?MODULE, Config).
+-spec start_link(logger_handler:config()) -> supervisor:startlink_ret().
+start_link(#{config := #{name := Name}} = LoggerConfig) ->
+    supervisor:start_link({local, Name}, ?MODULE, LoggerConfig).
 
--spec init(bugsnag:config()) -> {ok, {supervisor:sup_flags(), [supervisor:child_spec()]}}.
-init(Config) ->
+-spec init(logger_handler:config()) -> {ok, {supervisor:sup_flags(), [supervisor:child_spec()]}}.
+init(#{config := Config} = LoggerConfig) ->
     Strategy = #{strategy => rest_for_one, intensity => 20, period => 10},
     Children = [
         #{
@@ -55,7 +55,7 @@ init(Config) ->
         },
         #{
             id => bugsnag_register,
-            start => {bugsnag_register, start_link, [Config]},
+            start => {bugsnag_register, start_link, [LoggerConfig]},
             restart => permanent,
             shutdown => 5000,
             type => worker,

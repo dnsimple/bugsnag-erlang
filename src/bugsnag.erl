@@ -22,7 +22,7 @@ and no handler will be registered. For the rest of the keys, see `t:config/0`.
 If a new handler wants to be added, the `handler_name` key can be set to a new atom.
 """.
 
--export([start_link/2, add_handler/1, remove_handler/1]).
+-export([start_link/2, add_handler/1, add_handler/2, remove_handler/1]).
 -export([notify/3]).
 -export([notify/5, notify/7]).
 -deprecated([{start_link, 2, next_major_release}]).
@@ -87,7 +87,12 @@ The default `mfa` is `{undefined, undefined, 0}` and `line` is also 0.
 -doc "Add a new logger handler.".
 -spec add_handler(config()) -> supervisor:startchild_ret().
 add_handler(Config) ->
-    bugsnag_sup:add_handler(Config).
+    bugsnag_sup:add_handler(#{config => Config}).
+
+-doc "Add a new logger handler.".
+-spec add_handler(config(), logger_handler:config()) -> supervisor:startchild_ret().
+add_handler(Config, LoggerConfig) ->
+    bugsnag_sup:add_handler(LoggerConfig#{config => Config}).
 
 -doc "Remove a new logger handler.".
 -spec remove_handler(logger_handler:id() | config()) -> ok | {error, term()}.

@@ -37,7 +37,7 @@ do_start() ->
                 name => get_handler_name(),
                 pool_size => get_pool_size()
             },
-            bugsnag_sup:start_link(Opts)
+            bugsnag_sup:start_link(#{config => Opts})
     end.
 
 -spec maybe_set_error_logger() -> any().
