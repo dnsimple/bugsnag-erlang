@@ -279,7 +279,13 @@ get_worker(Name) ->
 -spec get_all_delivered_payloads(ct_suite:ct_config()) -> [term()].
 get_all_delivered_payloads(CtConfig) ->
     {ref, Ref} = lists:keyfind(ref, 1, CtConfig),
-    Logs = receive_all(Ref, []),
+    Logs0 = receive_all(Ref, []),
+    Logs = lists:flatmap(
+        fun(#{<<"events">> := Events} = Log) ->
+            [Log#{<<"events">> := [Event]} || Event <- Events]
+        end,
+        Logs0
+    ),
     ct:pal("All logged events ~p~n", [Logs]),
     Logs.
 
