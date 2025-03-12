@@ -45,7 +45,8 @@ It takes the following configuration options:
     api_key := binary(),
     release_stage := binary(),
     name := logger_handler:id(),
-    pool_size := pos_integer()
+    pool_size := pos_integer(),
+    endpoint => binary()
 }.
 
 -doc "A printable string".
