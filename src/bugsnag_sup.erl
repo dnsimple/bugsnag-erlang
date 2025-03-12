@@ -1,34 +1,46 @@
 -module(bugsnag_sup).
+-moduledoc false.
+%% This is the top supervisor of the application, and there'll be only one of them.
+%% When adding handlers, we will add a new `m:bugsnag_handler_sup`
 
 -behaviour(supervisor).
 
--export([start_link/1]).
--export([init/1]).
+-export([start_link/1, init/1, add_handler/1, remove_handler/1]).
 
--type opts() :: disabled | bugsnag:config().
--export_type([opts/0]).
+-type config() :: disabled | bugsnag:config().
+-export_type([config/0]).
 
--spec start_link(opts()) -> supervisor:startlink_ret().
+-spec start_link(config()) -> supervisor:startlink_ret().
 start_link(Args) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, Args).
 
--spec init(opts()) -> {ok, {supervisor:sup_flags(), [supervisor:child_spec()]}}.
+-spec add_handler(config()) -> supervisor:startchild_ret().
+add_handler(Config) ->
+    supervisor:start_child(?MODULE, proc(Config)).
+
+-spec remove_handler(logger_handler:id()) -> ok | {error, term()}.
+remove_handler(Name) ->
+    supervisor:terminate_child(?MODULE, Name).
+
+-spec init(config()) -> {ok, {supervisor:sup_flags(), [supervisor:child_spec()]}}.
 init(Args) ->
-    Strategy = #{strategy => one_for_one, intensity => 20, period => 10},
+    Strategy = #{strategy => one_for_one, intensity => 120, period => 5},
     Children = procs(Args),
     {ok, {Strategy, Children}}.
 
--spec procs(opts()) -> [supervisor:child_spec()].
+-spec procs(config()) -> [supervisor:child_spec()].
 procs(disabled) ->
     %% bugsnag is disabled in the config
     [];
 procs(Config) ->
-    Child = #{
-        id => bugsnag_worker,
-        start => {bugsnag_worker, start_link, [Config]},
+    [proc(Config)].
+
+proc(#{name := Name} = Config) ->
+    #{
+        id => Name,
+        start => {bugsnag_handler_sup, start_link, [Config]},
         restart => permanent,
-        shutdown => 5000,
-        type => worker,
-        modules => [bugsnag_worker]
-    },
-    [Child].
+        shutdown => infinity,
+        type => supervisor,
+        modules => [bugsnag_handler_sup]
+    }.

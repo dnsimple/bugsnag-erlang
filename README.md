@@ -2,16 +2,9 @@
 
 [![Build Status](https://github.com/dnsimple/bugsnag-erlang/actions/workflows/ci.yml/badge.svg)](https://github.com/dnsimple/bugsnag-erlang/actions/workflows/ci.yml)
 [![Module Version](https://img.shields.io/hexpm/v/bugsnag_erlang.svg)](https://hex.pm/packages/bugsnag_erlang)
-
-## Dependencies
-
-Requires [Lager](https://github.com/erlang-lager/lager)
-
-The following applications must be started
-
-```text
-kernel,stdlib,inets,crypto,ssl,lager
-```
+[![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/bugsnag_erlang/)
+[![Hex Downloads](https://img.shields.io/hexpm/dt/bugsnag_erlang.svg?maxAge=2592000)](https://hex.pm/packages/bugsnag_erlang)
+[![Coverage Status](https://coveralls.io/repos/github/dnsimple/bugsnag-erlang/badge.svg?branch=main)](https://coveralls.io/github/dnsimple/bugsnag-erlang?branch=main)
 
 ## Usage
 
@@ -27,38 +20,21 @@ Or use the Erlang error logger
 error_logger:error_msg("A sample error caught by the bugsnag error logger.").
 ```
 
-Or cause an error with a full stack trace
+Or `logger`:
 
 ```erlang
-bugsnag:test_error().
+?LOG_ERROR(#{what => example_error, text => "A sample error caught by the bugsnag logger handler"}).
 ```
 
-When embedding, make sure to set up the configuration elements in your sys.config (or other config file)
+When embedding, make sure to set up the configuration elements in your `sys.config` (or other config file),
+See `m:bugsnag` for configuration details.
 
-  ```erlang
-  [
-    {bugsnag_erlang, [
-      {error_logger, true},
-      {api_key, "ENTER_API_KEY"},
-      {release_state, "development"}
-    ]}
-  ].
-  ```
+## Lager handler
 
-And start the application:
-
-  ```erlang
-  application:start(bugsnag)
-  ```
-
-Or add the application to your .app configuration.
-
-### Lager handler
-
-We also provide a [lager](https://github.com/basho/lager) to report anything
+We also provide a [lager](https://github.com/basho/lager) handler to report anything
 above a certain level (by default, `error`) to Bugsnag.
 
-For example, simply add
+For example, simply add to your `sys.config`
 
 ```erlang
 {bugsnag_lager_handler, critical}
@@ -68,8 +44,18 @@ to your lager handler config.
 
 ## Testing
 
+To test the codebase:
+
 ```shell
 make test
+```
+
+## Formatting
+
+To format the codebase
+
+```shell
+make format
 ```
 
 ## Thanks
