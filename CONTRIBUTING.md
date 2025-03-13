@@ -28,10 +28,6 @@ The following instructions uses `$VERSION` as a placeholder, where `$VERSION` is
 
 1. Run the test suite and ensure all the tests pass.
 
-1. Set the version in `src/bugsnag_erlang.app.src` & `src/bugsnag.erl`
-
-1. Run the test suite and ensure all the tests pass.
-
 1. Finalize the `## main` section in `CHANGELOG.md` assigning the version.
 
 1. Commit and push the changes
