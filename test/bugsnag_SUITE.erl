@@ -49,11 +49,13 @@ end_per_group(_, _Config) ->
 
 -spec init_per_testcase(ct_suite:ct_testcase(), ct_suite:ct_config()) -> ct_suite:ct_config().
 init_per_testcase(_Name, Config) ->
-    ets:new(bugsnag_worker, [named_table, public, bag]),
-    Config.
+    Ref = make_ref(),
+    Port = http_helper:start('_', process_request(Ref)),
+    [{port, Port}, {ref, Ref} | Config].
 
 -spec end_per_testcase(ct_suite:ct_testcase(), ct_suite:ct_config()) -> term().
 end_per_testcase(Name, _Config) ->
+    http_helper:stop(),
     case lists:member(Name, app_tests()) of
         true ->
             application:stop(bugsnag_erlang),
@@ -139,16 +141,16 @@ can_start_with_different_release_states(_) ->
     lists:foreach(Fun, List).
 
 -spec can_start_and_stop_the_default_logger(ct_suite:ct_config()) -> term().
-can_start_and_stop_the_default_logger(_) ->
-    {ok, _Sup} = bugsnag:add_handler(template_handler(?FUNCTION_NAME)),
+can_start_and_stop_the_default_logger(CtConfig) ->
+    {ok, _Sup} = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
     ct:pal("We can stop any one without affecting the others"),
     bugsnag:remove_handler(?FUNCTION_NAME),
     ?assertMatch({error, _}, logger:get_handler_config(?FUNCTION_NAME)),
     {comment, "Successfully stopped loggers independently of each other."}.
 
 -spec can_start_and_stop_different_loggers(ct_suite:ct_config()) -> term().
-can_start_and_stop_different_loggers(_) ->
-    Config0 = template_handler(?FUNCTION_NAME),
+can_start_and_stop_different_loggers(CtConfig) ->
+    Config0 = template_handler(CtConfig, ?FUNCTION_NAME),
     ct:pal("After starting three loggers"),
     ConfigA = Config0#{name => config_a},
     ConfigB = Config0#{name => config_b},
@@ -172,14 +174,14 @@ can_start_and_stop_different_loggers(_) ->
     {comment, "Successfully stopped loggers independently of each other."}.
 
 -spec supervision_tree_starts_successfully(ct_suite:ct_config()) -> term().
-supervision_tree_starts_successfully(_) ->
-    Res = bugsnag:add_handler(template_handler(?FUNCTION_NAME)),
+supervision_tree_starts_successfully(CtConfig) ->
+    Res = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
     ?assertMatch({ok, Pid} when is_pid(Pid), Res),
     ?assertNotEqual(undefined, ets:info(?FUNCTION_NAME)).
 
 -spec does_not_crash_on_bad_messages(ct_suite:ct_config()) -> term().
-does_not_crash_on_bad_messages(_) ->
-    Config = template_handler(?FUNCTION_NAME),
+does_not_crash_on_bad_messages(CtConfig) ->
+    Config = template_handler(CtConfig, ?FUNCTION_NAME),
     _ = bugsnag:add_handler(Config),
     ct:pal("Sending different invalid messages to the process..."),
     bugsnag_worker:notify_worker(Config, #{something => <<"misterious">>}),
@@ -193,8 +195,8 @@ does_not_crash_on_bad_messages(_) ->
     {comment, "Process successfully survived invalid messages."}.
 
 -spec process_traps_exits(ct_suite:ct_config()) -> term().
-process_traps_exits(_) ->
-    _ = bugsnag:add_handler(template_handler(?FUNCTION_NAME)),
+process_traps_exits(CtConfig) ->
+    _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
     Pid = get_worker(?FUNCTION_NAME),
     ct:pal("Verifiying that the process won't be killed by exits:"),
     exit(Pid, shutdown),
@@ -202,11 +204,10 @@ process_traps_exits(_) ->
     {comment, "Process successfully survived exit signals"}.
 
 -spec generate_exception_event_from_structured_log(ct_suite:ct_config()) -> term().
-generate_exception_event_from_structured_log(_) ->
-    _ = bugsnag:add_handler(template_handler(?FUNCTION_NAME)),
-    Pid = get_worker(?FUNCTION_NAME),
+generate_exception_event_from_structured_log(CtConfig) ->
+    _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
     generate_exception(bugsnag_gen_trace),
-    {ok, Logs} = wait_until_at_least_logs(Pid, 1),
+    {ok, Logs} = wait_until_at_least_logs(CtConfig, 1),
     Pred = fun
         (
             #{
@@ -232,11 +233,10 @@ generate_exception_event_from_structured_log(_) ->
     {comment, "Generated exception formatted correctly"}.
 
 -spec all_log_events_can_be_handled(ct_suite:ct_config()) -> term().
-all_log_events_can_be_handled(_) ->
-    _ = bugsnag:add_handler(template_handler(?FUNCTION_NAME)),
-    Pid = get_worker(?FUNCTION_NAME),
+all_log_events_can_be_handled(CtConfig) ->
+    _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
     generate_all_log_level_events_and_types(),
-    case wait_until_at_least_logs(Pid, 8) of
+    case wait_until_at_least_logs(CtConfig, 8) of
         {ok, Logs} ->
             verify_schema(schema(), Logs),
             {comment, "All log levels were triggered."};
@@ -245,11 +245,10 @@ all_log_events_can_be_handled(_) ->
     end.
 
 -spec verify_against_schema(ct_suite:ct_config()) -> term().
-verify_against_schema(_) ->
-    _ = bugsnag:add_handler(template_handler(?FUNCTION_NAME)),
-    Pid = get_worker(?FUNCTION_NAME),
+verify_against_schema(CtConfig) ->
+    _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
     generate_exception(bugsnag_gen_trace),
-    Logs = get_all_delivered_payloads(Pid),
+    Logs = get_all_delivered_payloads(CtConfig),
     Schema = schema(),
     verify_schema(Schema, Logs),
     {comment, "All returned errors are validated against the schema"}.
@@ -277,48 +276,72 @@ generate_all_log_level_events_and_types() ->
 get_worker(Name) ->
     ets:lookup_element(Name, 1, 2).
 
--spec get_all_delivered_payloads(pid()) -> [term()].
-get_all_delivered_payloads(Pid) ->
-    Logs0 = ets:lookup(bugsnag_worker, Pid),
-    Logs = lists:map(fun({_, Log}) -> json:decode(Log) end, Logs0),
+-spec get_all_delivered_payloads(ct_suite:ct_config()) -> [term()].
+get_all_delivered_payloads(CtConfig) ->
+    {ref, Ref} = lists:keyfind(ref, 1, CtConfig),
+    Logs0 = receive_all(Ref, []),
+    Logs = lists:flatmap(
+        fun(#{<<"events">> := Events} = Log) ->
+            [Log#{<<"events">> := [Event]} || Event <- Events]
+        end,
+        Logs0
+    ),
     ct:pal("All logged events ~p~n", [Logs]),
     Logs.
 
--spec wait_until_at_least_logs(pid(), non_neg_integer()) -> [term()].
-wait_until_at_least_logs(Pid, Num) ->
+process_request(Ref) ->
+    Pid = self(),
+    fun(Req0) ->
+        {ok, Data, Req} = cowboy_req:read_body(Req0, #{length => 8000000, period => 5000}),
+        Pid ! {Ref, Data},
+        cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, <<"OK">>, Req)
+    end.
+
+receive_all(Ref, Acc) ->
+    receive
+        {Ref, Data} ->
+            receive_all(Ref, [json:decode(Data) | Acc])
+    after 0 ->
+        lists:reverse(Acc)
+    end.
+
+-spec wait_until_at_least_logs(ct_suite:ct_config(), non_neg_integer()) -> [term()].
+wait_until_at_least_logs(CtConfig, Num) ->
     Validator = fun(ReturnValue) -> Num =< length(ReturnValue) end,
     wait_helper:wait_until(
-        fun() -> get_all_delivered_payloads(Pid) end,
+        fun() -> get_all_delivered_payloads(CtConfig) end,
         expected,
         #{no_throw => true, time_left => timer:seconds(1), sleep_time => 50, validator => Validator}
     ).
 
--spec assert_has_logs(pid(), atom()) -> ok.
-assert_has_logs(Pid, FunctionName) ->
+-spec assert_has_logs(ct_suite:ct_config(), atom()) -> ok.
+assert_has_logs(CtConfig, FunctionName) ->
     HasFunctionName = lists:any(
         fun(Log) ->
             atom_to_binary(FunctionName) =:= lists:nth(6, Log)
         end,
-        get_all_delivered_payloads(Pid)
+        get_all_delivered_payloads(CtConfig)
     ),
     ?assert(HasFunctionName).
 
--spec assert_has_no_logs(pid(), atom()) -> ok.
-assert_has_no_logs(Pid, FunctionName) ->
+-spec assert_has_no_logs(ct_suite:ct_config(), atom()) -> ok.
+assert_has_no_logs(CtConfig, FunctionName) ->
     HasFunctionName = lists:all(
         fun(Log) ->
             atom_to_binary(FunctionName) =/= lists:nth(6, Log)
         end,
-        get_all_delivered_payloads(Pid)
+        get_all_delivered_payloads(CtConfig)
     ),
     ?assert(HasFunctionName).
 
-template_handler(Name) ->
+template_handler(CtConfig, Name) ->
+    {port, Port} = lists:keyfind(port, 1, CtConfig),
     #{
         name => Name,
         pool_size => 1,
         api_key => <<"dummy">>,
-        release_stage => production
+        release_stage => production,
+        endpoint => "http://localhost:" ++ integer_to_list(Port)
     }.
 
 generate_exception(Reason0) ->

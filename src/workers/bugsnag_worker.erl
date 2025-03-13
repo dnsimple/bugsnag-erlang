@@ -3,25 +3,29 @@
 
 -include_lib("kernel/include/logger.hrl").
 
+-define(NOTIFY_ENDPOINT, <<"https://notify.bugsnag.com">>).
+-define(NOTIFIER_NAME, <<"Bugsnag Erlang">>).
+-define(NOTIFIER_URL, <<"https://github.com/dnsimple/bugsnag-erlang">>).
+
 -behaviour(gen_server).
 
 -export([start_link/1, start_link/2, notify_worker/2]).
 
 -deprecated([{start_link, 1, next_major_release}]).
 
--ifdef(TEST).
--export([do_deliver_payload/2]).
--endif.
-
 -export([
     init/1,
     handle_call/3,
-    handle_cast/2
+    handle_cast/2,
+    handle_info/2
 ]).
 
 -record(state, {
+    pending :: undefined | reference(),
+    acc = [] :: list(),
     api_key :: binary(),
     release_stage :: binary(),
+    endpoint = ?NOTIFY_ENDPOINT :: binary(),
     base_event :: bugsnag_api_error_reporting:event(),
     base_report :: bugsnag_api_error_reporting:error_report()
 }).
@@ -43,10 +47,6 @@
 
 -export_type([state/0, payload/0]).
 
--define(NOTIFY_ENDPOINT, "https://notify.bugsnag.com").
--define(NOTIFIER_NAME, <<"Bugsnag Erlang">>).
--define(NOTIFIER_URL, <<"https://github.com/dnsimple/bugsnag-erlang">>).
-
 -spec start_link(bugsnag:config()) -> gen_server:start_ret().
 start_link(Config) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, {undefined, Config}, [{debug, [log]}]).
@@ -63,27 +63,19 @@ notify_worker(#{name := Name, pool_size := PoolSize}, Payload) ->
 
 % Gen server hooks
 -spec init({undefined | pos_integer(), bugsnag:config()}) -> {ok, state()}.
-init({undefined, #{api_key := ApiKey, release_stage := ReleaseStage}}) ->
-    do_init(ApiKey, ReleaseStage);
-init({N, #{name := Name, api_key := ApiKey, release_stage := ReleaseStage}}) ->
+init({undefined, Config}) ->
+    do_init(Config);
+init({N, #{name := Name} = Config}) ->
     ets:insert(Name, {N, self()}),
-    do_init(ApiKey, ReleaseStage).
+    do_init(Config).
 
 -spec handle_cast({legacy, payload()} | {event, bugsnag_api_error_reporting:event()}, state()) ->
     {noreply, state()}.
-handle_cast(
-    {event, Event},
-    #state{api_key = ApiKey, base_event = BaseEvent, base_report = BaseReport} = State
-) when is_map(Event) ->
-    Report = BaseReport#{
-        events := [maps:merge(BaseEvent, Event)]
-    },
-    deliver_payload(ApiKey, Report),
-    {noreply, State};
+handle_cast({event, Event}, #state{} = State) when is_map(Event) ->
+    send_pending(Event, State);
 %% TODO: This is to support lager and error_logger, to be removed
 handle_cast({legacy, Legacy}, #state{} = State) ->
     #{type := Type, reason := Reason, message := Message, trace := Trace} = Legacy,
-    #state{api_key = ApiKey, base_event = BaseEvent, base_report = BaseReport} = State,
     Event = #{
         exceptions => [
             #{
@@ -94,11 +86,7 @@ handle_cast({legacy, Legacy}, #state{} = State) ->
             }
         ]
     },
-    Report = BaseReport#{
-        events := [maps:merge(BaseEvent, Event)]
-    },
-    deliver_payload(ApiKey, Report),
-    {noreply, State};
+    send_pending(Event, State);
 handle_cast(_, State) ->
     {noreply, State}.
 
@@ -106,16 +94,45 @@ handle_cast(_, State) ->
 handle_call(_, _, State) ->
     {reply, bad_request, State}.
 
+-spec handle_info(term(), state()) -> {noreply, state()}.
+handle_info({http, {Ref, {{_, 200, _}, _, _}}}, #state{pending = Ref} = State) ->
+    send_pending(State#state{pending = undefined});
+handle_info({http, {Ref, {{_, Status, ReasonPhrase}, _, _}}}, #state{pending = Ref} = State) ->
+    ?LOG_WARNING(#{what => send_status_failed, status => Status, reason => ReasonPhrase}),
+    send_pending(State#state{pending = undefined});
+handle_info({http, {Ref, Unknown}}, #state{pending = Ref} = State) ->
+    ?LOG_WARNING(#{what => send_status_failed, reason => Unknown}),
+    send_pending(State#state{pending = undefined});
+handle_info(_Info, State) ->
+    {noreply, State}.
+
 % Internal API
 
--spec do_init(binary(), binary()) -> {ok, state()}.
-do_init(ApiKey, ReleaseStage) ->
+send_pending(Event, #state{acc = Acc, base_event = BaseEvent} = State) ->
+    MergedEvent = maps:merge(BaseEvent, Event),
+    send_pending(State#state{acc = [MergedEvent | Acc]}).
+
+send_pending(
+    #state{pending = undefined, acc = [_ | _] = Acc, api_key = ApiKey, base_report = BaseReport} =
+        State
+) ->
+    Report = BaseReport#{events := lists:reverse(Acc)},
+    Ref = deliver_payload(ApiKey, Report, State),
+    {noreply, State#state{pending = Ref, acc = []}};
+send_pending(#state{acc = []} = State) ->
+    {noreply, State};
+send_pending(#state{pending = _} = State) ->
+    {noreply, State}.
+
+-spec do_init(bugsnag:config()) -> {ok, state()}.
+do_init(#{api_key := ApiKey, release_stage := ReleaseStage} = Config) ->
     process_flag(trap_exit, true),
     Base = build_base_event(ReleaseStage),
     Report = build_base_report(),
     {ok, #state{
         api_key = ApiKey,
         release_stage = ReleaseStage,
+        endpoint = maps:get(endpoint, Config, ?NOTIFY_ENDPOINT),
         base_report = Report,
         base_event = Base
     }}.
@@ -142,13 +159,12 @@ process_trace([Current | Rest], ProcessedTrace) ->
     ?LOG_WARNING(#{what => discarding_stack_trace_line, line => Current}),
     process_trace(Rest, ProcessedTrace).
 
--spec deliver_payload(binary(), bugsnag_api_error_reporting:error_report()) -> ok.
-deliver_payload(ApiKey, Payload) ->
+deliver_payload(ApiKey, Payload, #state{endpoint = Endpoint}) ->
     Headers = [
         {"Bugsnag-Api-Key", ApiKey},
         {"Bugsnag-Payload-Version", "5"}
     ],
-    do_deliver_payload(Headers, Payload).
+    do_deliver_payload(Endpoint, Headers, Payload).
 
 -spec error_class(term()) -> throw | error | exit.
 error_class(throw) -> throw;
@@ -199,21 +215,10 @@ build_base_report() ->
         events => []
     }.
 
--ifdef(TEST).
-do_deliver_payload(_Headers, Payload) ->
-    Value = iolist_to_binary(json:encode(Payload)),
-    catch ets:insert(?MODULE, {self(), Value}),
-    ok.
--else.
-do_deliver_payload(Headers, Payload) ->
-    Request = {?NOTIFY_ENDPOINT, Headers, "application/json", json:encode(Payload)},
-    %% TODO: add ssl options
+do_deliver_payload(Endpoint, Headers, Payload) ->
+    Request = {Endpoint, Headers, "application/json", json:encode(Payload)},
+    Alias = alias([reply]),
     HttpOptions = [{timeout, 5000}],
-    case httpc:request(post, Request, HttpOptions, []) of
-        {ok, {{_Version, 200, _ReasonPhrase}, _Headers, _Body}} ->
-            ok;
-        {_, {{_Version, Status, ReasonPhrase}, _Headers, _Body}} ->
-            ?LOG_WARNING(#{what => send_status_failed, status => Status, reason => ReasonPhrase})
-    end,
-    ok.
--endif.
+    Options = [{sync, false}, {receiver, Alias}],
+    {ok, RequestId} = httpc:request(post, Request, HttpOptions, Options),
+    RequestId.
