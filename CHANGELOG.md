@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## main
 
+## 3.0.0-rc1
+
+Added:
+
+Support for logger introduced, and lager and error_logger deprecated and scheduled to be removed on the next big release.
+
+Fixed:
+
+- Split bugsnag api from worker
+- Add app-startup verification and preparation of configuration
+- Add support for `logger` and multiple logger handlers.
+- Add support for asynchonous HTTP requests together with bounded pooling
+
 ## 2.0.1
 
 Fixed:
