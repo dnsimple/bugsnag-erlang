@@ -8,13 +8,13 @@
 
 ## Usage
 
-You may send custom errors directly
+You may send custom errors directly:
 
 ```erlang
 bugsnag:notify(error, fake, "Testing bugsnag with a manual error report", no_module, 0).
 ```
 
-Or use the Erlang error logger
+Or use the Erlang error logger:
 
 ```erlang
 error_logger:error_msg("A sample error caught by the bugsnag error logger.").
@@ -57,7 +57,3 @@ To format the codebase
 ```shell
 make format
 ```
-
-## Thanks
-
-Thank you to Ken Pratt: his library <https://github.com/kenpratt/erlbrake> provided a lot of code for this library.
