@@ -10,11 +10,11 @@
 start_link(Config) ->
     gen_server:start_link(?MODULE, Config, [{hibernate_after, 0}]).
 
--spec init(bugsnag:config()) -> {ok, atom(), hibernate}.
-init(#{name := Name} = Config) ->
+-spec init(logger_handler:config()) -> {ok, atom(), hibernate}.
+init(#{config := #{name := Name}} = LoggerConfig) ->
     %% So that `terminate/2` is called
     process_flag(trap_exit, true),
-    _ = logger:add_handler(Name, bugsnag_logger_handler, #{config => Config}),
+    _ = logger:add_handler(Name, bugsnag_logger_handler, LoggerConfig),
     {ok, Name, hibernate}.
 
 -spec handle_call(term(), gen_server:from(), atom()) -> {reply, ok, atom(), hibernate}.

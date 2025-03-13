@@ -7,16 +7,16 @@
 
 -export([start_link/1, init/1, add_handler/1, remove_handler/1]).
 
--type config() :: disabled | bugsnag:config().
+-type config() :: disabled | logger_handler:config().
 -export_type([config/0]).
 
 -spec start_link(config()) -> supervisor:startlink_ret().
 start_link(Args) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, Args).
 
--spec add_handler(config()) -> supervisor:startchild_ret().
-add_handler(Config) ->
-    supervisor:start_child(?MODULE, proc(Config)).
+-spec add_handler(logger_handler:config()) -> supervisor:startchild_ret().
+add_handler(LoggerConfig) ->
+    supervisor:start_child(?MODULE, proc(LoggerConfig)).
 
 -spec remove_handler(logger_handler:id()) -> ok | {error, term()}.
 remove_handler(Name) ->
@@ -35,10 +35,10 @@ procs(disabled) ->
 procs(Config) ->
     [proc(Config)].
 
-proc(#{name := Name} = Config) ->
+proc(#{config := #{name := Name}} = LoggerConfig) ->
     #{
         id => Name,
-        start => {bugsnag_handler_sup, start_link, [Config]},
+        start => {bugsnag_handler_sup, start_link, [LoggerConfig]},
         restart => permanent,
         shutdown => infinity,
         type => supervisor,
