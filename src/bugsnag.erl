@@ -42,7 +42,7 @@ It takes the following configuration options:
     in case of high load.
 - `endpoint`: allows you to configure a custom config, including testing endpoints.
 - `events_limit`: allows you to configure the maximum number of events to be sent to Bugsnag at
-    once. If even queues fill too fast, older non-sent events will be dropped.
+    once. If event queues fill too fast, older non-sent events will be dropped.
     The default is 1000, as an average big event including stacktraces is no bigger than 1KB,
     therefore 1000 events should keep the payload below 1MB.
 """.
