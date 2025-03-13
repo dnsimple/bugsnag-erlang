@@ -1,0 +1,68 @@
+---
+
+name: Check Dependencies
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '38 8 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: write-all
+
+jobs:
+  check-deps:
+    name: Check Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27'
+          rebar3-version: '3.24'
+          version-type: 'strict'
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/rebar3
+            _build
+          key: ${{ runner.os }}-erlang-${{ matrix.otp_version }}-${{ hashFiles('**/*rebar.lock') }}
+
+      - name: Build
+        run: make build
+
+      - name: Update dependencies
+        id: update-deps
+        run: |
+          _update_output="$(TERM=dumb rebar3 update-deps --replace)"
+
+          cat <<EOF > /tmp/pr-body.md
+          Output of running \`rebar3 update-deps\`:
+
+          \```
+          $_update_output
+          \```
+          EOF
+
+          rebar3 fmt --write
+
+      # We can always run this step because the action will exit silently if there are no changes.
+      # See: https://github.com/marketplace/actions/create-pull-request#action-behaviour
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          # By always using the same branch name, we can keep pushing to
+          # the same branch if there are new changes.
+          branch: "automatic-dependencies-update"
+          commit-message: "Update dependencies"
+          title: "Update dependencies"
+          body-path: /tmp/pr-body.md
+          labels: "dependencies,task"
+          team-reviewers: "dnsimple/platform"
+          delete-branch: true
