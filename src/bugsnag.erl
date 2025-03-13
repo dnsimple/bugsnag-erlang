@@ -23,6 +23,7 @@ If a new handler wants to be added, the `handler_name` key can be set to a new a
 """.
 
 -export([start_link/2, add_handler/1, remove_handler/1]).
+-export([notify/3]).
 -export([notify/5, notify/7]).
 -deprecated([{start_link, 2, next_major_release}]).
 -deprecated([{notify, 5, next_major_release}]).
@@ -47,7 +48,41 @@ It takes the following configuration options:
     pool_size := pos_integer()
 }.
 
--export_type([config/0]).
+-doc "A printable string".
+-type text() :: atom() | string() | binary().
+
+-doc """
+Event to notify to BugSnag.
+
+1. Events that contain `#{class := _, reason := _, stacktrace := _}`, following the naming
+    convention as exemplified by `erlang:raise/3`, will be treated as exceptions to BugSnag.
+2. Event structure will have all their printable key-value pairs as key-value pairs in `metaData`.
+3. `breadcrumbs` will always contain the timestamp of the event.
+""".
+-type event() :: #{
+    what => text(),
+    message => text(),
+    class => exit | error | throw,
+    reason => term(),
+    stacktrace => [{module(), atom(), non_neg_integer() | [term()], [{atom(), _}]}],
+    atom() => text()
+}.
+
+-doc """
+Metadata about the event.
+
+The default severity level is `warning`.
+The default `mfa` is `{undefined, undefined, 0}` and `line` is also 0.
+""".
+-type metadata() :: #{
+    mfa := {module(), atom(), non_neg_integer()},
+    line := non_neg_integer(),
+    level => logger:level(),
+    time => integer(),
+    atom => term()
+}.
+
+-export_type([config/0, event/0, metadata/0, text/0]).
 
 -doc "Add a new logger handler.".
 -spec add_handler(config()) -> supervisor:startchild_ret().
@@ -55,11 +90,30 @@ add_handler(Config) ->
     bugsnag_sup:add_handler(Config).
 
 -doc "Remove a new logger handler.".
--spec remove_handler(config()) -> ok | {error, term()}.
+-spec remove_handler(logger_handler:id() | config()) -> ok | {error, term()}.
 remove_handler(#{name := Name}) ->
     bugsnag_sup:remove_handler(Name);
 remove_handler(Name) ->
     bugsnag_sup:remove_handler(Name).
+
+-doc """
+Notify of a bugsnag event.
+
+1. Events that contain `#{class := _, reason := _, stacktrace := _}`, following the naming
+    convention as exemplified by `erlang:raise/3`, will be treated as exceptions to BugSnag.
+2. Event structure will have all their printable key-value pairs as key-value pairs in `metaData`
+""".
+-spec notify(config(), event(), metadata()) -> term().
+notify(BugSnagConfig, Report, Meta) ->
+    Event = #{
+        severity => build_severity(Meta),
+        'severityReason' => build_severity_reason(Meta),
+        'metaData' => build_metadata(Report, Meta),
+        context => build_context(Report, Meta),
+        exceptions => build_exception(Report),
+        breadcrumbs => build_breadcrumb(Report, Meta)
+    },
+    bugsnag_worker:notify_worker(BugSnagConfig, {event, Event}).
 
 -doc """
 Add a new global `bugsnag_logger_handler` handler.
@@ -110,3 +164,103 @@ generate_trace() ->
                     lists:nthtail(StepsBack, StackTrace)
             end
     end.
+
+-spec build_exception(map()) -> [bugsnag_api_error_reporting:exception()].
+build_exception(#{class := Class, reason := Reason, stacktrace := StackTrace}) ->
+    [
+        #{
+            'errorClass' => Class,
+            message => Reason,
+            stacktrace => process_trace(StackTrace)
+        }
+    ];
+build_exception(_) ->
+    [].
+
+-spec build_breadcrumb(map(), logger:metadata()) -> [bugsnag_api_error_reporting:breadcrumb()].
+build_breadcrumb(Report, #{time := Time}) ->
+    TimeString = list_to_binary(calendar:system_time_to_rfc3339(Time, [{unit, microsecond}])),
+    [
+        #{
+            timestamp => TimeString,
+            name => build_breadcrumb_name(Report),
+            type => breadcrumb_type(Report)
+        }
+    ];
+build_breadcrumb(Report, _) ->
+    Time = erlang:system_time(microsecond),
+    build_breadcrumb(Report, #{time => Time}).
+
+-spec breadcrumb_type(map()) -> bugsnag_api_error_reporting:breadcrumb_type().
+breadcrumb_type(#{class := _, reason := _, stacktrace := _}) ->
+    error;
+breadcrumb_type(_) ->
+    log.
+
+-spec build_context(map(), logger:metadata()) -> text().
+build_context(#{what := What}, _) ->
+    What;
+build_context(#{message := Message}, _) ->
+    Message;
+build_context(_, _) ->
+    <<>>.
+
+-spec build_breadcrumb_name(map()) -> text().
+build_breadcrumb_name(#{what := What}) ->
+    What;
+build_breadcrumb_name(#{message := Text}) ->
+    Text;
+build_breadcrumb_name(_) ->
+    undefined.
+
+-spec build_severity(metadata()) -> bugsnag_api_error_reporting:severity().
+build_severity(#{level := emergency}) -> error;
+build_severity(#{level := alert}) -> error;
+build_severity(#{level := critical}) -> error;
+build_severity(#{level := error}) -> error;
+build_severity(#{level := notice}) -> info;
+build_severity(#{level := info}) -> info;
+build_severity(#{level := debug}) -> info;
+build_severity(#{level := warning}) -> warning;
+build_severity(_) -> warning.
+
+-spec build_severity_reason(metadata()) -> bugsnag_api_error_reporting:severity_reason().
+build_severity_reason(#{level := Level}) ->
+    #{type => log, attributes => #{level => Level}};
+build_severity_reason(_) ->
+    #{type => log, attributes => #{level => warning}}.
+
+-spec build_metadata(map(), logger:metadata()) -> map().
+build_metadata(Report, #{mfa := Mfa, line := Line}) ->
+    BaseReport = #{K => V || K := V <- Report, is_atom(K), (is_atom(V) orelse is_binary(V))},
+    BaseReport#{function_name => function_name(Mfa), line => Line}.
+
+-spec function_name({atom(), atom(), pos_integer()}) -> binary().
+function_name({Module, Function, Arity}) ->
+    function_name(Module, Function, Arity).
+
+-spec function_name(atom(), atom(), pos_integer()) -> binary().
+function_name(Module, Function, Arity) ->
+    iolist_to_binary(io_lib:format("~p:~p/~p", [Module, Function, Arity])).
+
+-spec process_trace([tuple()]) -> [bugsnag_api_error_reporting:stackframe()].
+process_trace(StackTrace) ->
+    process_trace(StackTrace, []).
+
+process_trace([], ProcessedTrace) ->
+    lists:reverse(ProcessedTrace);
+process_trace([{Mod, Fun, Args, Info} | Rest], ProcessedTrace) when is_list(Args) ->
+    Arity = length(Args),
+    process_trace([{Mod, Fun, Arity, Info} | Rest], ProcessedTrace);
+process_trace([{Mod, Fun, Arity, Info} | Rest], ProcessedTrace) when is_integer(Arity) ->
+    LineNum = proplists:get_value(line, Info, 0),
+    FunName = function_name(Mod, Fun, Arity),
+    File = iolist_to_binary(proplists:get_value(file, Info, "")),
+    Trace = #{
+        file => File,
+        'lineNumber' => LineNum,
+        method => FunName
+    },
+    process_trace(Rest, [Trace | ProcessedTrace]);
+process_trace([_Current | Rest], ProcessedTrace) ->
+    process_trace(Rest, ProcessedTrace).
