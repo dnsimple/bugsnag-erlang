@@ -35,7 +35,8 @@ do_start() ->
                 api_key => ApiKey,
                 release_stage => get_release_state(),
                 name => get_handler_name(),
-                pool_size => get_pool_size()
+                pool_size => get_pool_size(),
+                events_limit => get_events_limit()
             },
             bugsnag_sup:start_link(#{config => Opts})
     end.
@@ -92,6 +93,15 @@ get_pool_size() ->
     case application:get_env(bugsnag_erlang, pool_size) of
         undefined ->
             erlang:system_info(schedulers);
+        {ok, Value} when is_integer(Value), Value >= 1 ->
+            Value
+    end.
+
+-spec get_events_limit() -> pos_integer().
+get_events_limit() ->
+    case application:get_env(bugsnag_erlang, events_limit) of
+        undefined ->
+            1000;
         {ok, Value} when is_integer(Value), Value >= 1 ->
             Value
     end.

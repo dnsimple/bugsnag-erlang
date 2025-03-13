@@ -6,6 +6,7 @@
 -define(NOTIFY_ENDPOINT, <<"https://notify.bugsnag.com">>).
 -define(NOTIFIER_NAME, <<"Bugsnag Erlang">>).
 -define(NOTIFIER_URL, <<"https://github.com/dnsimple/bugsnag-erlang">>).
+-define(NOTIFIER_ACC_LIMIT, 1000).
 
 -behaviour(gen_server).
 
@@ -22,10 +23,12 @@
 
 -record(state, {
     pending :: undefined | reference(),
-    acc = [] :: list(),
+    acc = queue:new() :: queue:queue(map()),
+    acc_size = 0 :: non_neg_integer(),
+    acc_limit :: pos_integer(),
     api_key :: binary(),
     release_stage :: binary(),
-    endpoint = ?NOTIFY_ENDPOINT :: binary(),
+    endpoint :: binary(),
     base_event :: bugsnag_api_error_reporting:event(),
     base_report :: bugsnag_api_error_reporting:error_report()
 }).
@@ -108,20 +111,26 @@ handle_info(_Info, State) ->
 
 % Internal API
 
-send_pending(Event, #state{acc = Acc, base_event = BaseEvent} = State) ->
+send_pending(
+    Event, #state{acc = Acc, acc_size = Limit, acc_limit = Limit, base_event = BaseEvent} = State
+) ->
+    {{value, ToDiscard}, Acc1} = queue:out(Acc),
+    ?LOG_WARNING(#{what => bugsnag_discarding_event_overflow, event => ToDiscard}),
+    send_pending(State#state{acc = queue:in(maps:merge(BaseEvent, Event), Acc1)});
+send_pending(Event, #state{acc = Acc, acc_size = AccSize, base_event = BaseEvent} = State) ->
     MergedEvent = maps:merge(BaseEvent, Event),
-    send_pending(State#state{acc = [MergedEvent | Acc]}).
+    send_pending(State#state{acc = queue:in(MergedEvent, Acc), acc_size = AccSize + 1}).
 
 send_pending(
-    #state{pending = undefined, acc = [_ | _] = Acc, api_key = ApiKey, base_report = BaseReport} =
+    #state{pending = undefined, acc = Acc, acc_size = N, api_key = ApiKey, base_report = BaseReport} =
         State
-) ->
-    Report = BaseReport#{events := lists:reverse(Acc)},
+) when is_integer(N), 0 < N ->
+    Report = BaseReport#{events := queue:to_list(Acc)},
     Ref = deliver_payload(ApiKey, Report, State),
-    {noreply, State#state{pending = Ref, acc = []}};
-send_pending(#state{acc = []} = State) ->
+    {noreply, State#state{pending = Ref, acc = queue:new()}};
+send_pending(#state{acc_size = 0} = State) ->
     {noreply, State};
-send_pending(#state{pending = _} = State) ->
+send_pending(#state{} = State) ->
     {noreply, State}.
 
 -spec do_init(bugsnag:config()) -> {ok, state()}.
@@ -130,6 +139,7 @@ do_init(#{api_key := ApiKey, release_stage := ReleaseStage} = Config) ->
     Base = build_base_event(ReleaseStage),
     Report = build_base_report(),
     {ok, #state{
+        acc_limit = maps:get(events_limit, Config, ?NOTIFIER_ACC_LIMIT),
         api_key = ApiKey,
         release_stage = ReleaseStage,
         endpoint = maps:get(endpoint, Config, ?NOTIFY_ENDPOINT),
