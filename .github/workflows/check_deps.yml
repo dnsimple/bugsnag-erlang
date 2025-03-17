@@ -23,9 +23,8 @@ jobs:
 
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: '27'
-          rebar3-version: '3.24'
-          version-type: 'strict'
+          otp-version: '27.x'
+          rebar3-version: '3.x'
 
       - uses: actions/cache@v4
         with:
@@ -64,5 +63,4 @@ jobs:
           title: "Update dependencies"
           body-path: /tmp/pr-body.md
           labels: "dependencies,task"
-          team-reviewers: "dnsimple/platform"
           delete-branch: true
