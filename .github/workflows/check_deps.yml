@@ -44,9 +44,9 @@ jobs:
           cat <<EOF > /tmp/pr-body.md
           Output of running \`rebar3 update-deps\`:
 
-          \```
+          \`\`\`
           $_update_output
-          \```
+          \`\`\`
           EOF
 
           rebar3 fmt --write
