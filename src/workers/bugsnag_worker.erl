@@ -52,11 +52,11 @@
 
 -spec start_link(bugsnag:config()) -> gen_server:start_ret().
 start_link(Config) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, {undefined, Config}, [{debug, [log]}]).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, {undefined, Config}, []).
 
 -spec start_link(pos_integer(), bugsnag:config()) -> gen_server:start_ret().
 start_link(N, Config) ->
-    gen_server:start_link(?MODULE, {N, Config}, [{debug, [log]}]).
+    gen_server:start_link(?MODULE, {N, Config}, []).
 
 -spec notify_worker(bugsnag:config(), payload()) -> ok.
 notify_worker(#{name := Name, pool_size := PoolSize}, Payload) ->
