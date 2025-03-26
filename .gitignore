@@ -6,5 +6,5 @@ sys.config
 
 # rebar 3
 .rebar3
-/_build
-/doc/
+_build/
+doc/
