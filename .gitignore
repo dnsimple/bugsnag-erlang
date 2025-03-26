@@ -1,5 +1,7 @@
-.tool-versions
 *.dump
+
+# local setup
+.tool-versions
 sys.config
 
 # rebar 3
