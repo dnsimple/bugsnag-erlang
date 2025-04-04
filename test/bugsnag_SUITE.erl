@@ -49,14 +49,21 @@ end_per_group(_, _Config) ->
 
 -spec init_per_testcase(ct_suite:ct_testcase(), ct_suite:ct_config()) -> ct_suite:ct_config().
 init_per_testcase(Name, Config) ->
-    Ref = make_ref(),
-    Port = http_helper:start(Name, '_', process_request(Ref, self())),
-    ct:pal("Testcase ~p listening on port ~p and reference ~p~n", [Name, Port, {self(), Ref}]),
-    [{port, Port}, {ref, Ref} | Config].
+    case lists:member(Name, log_messages_tests()) of
+        true ->
+            Ref = make_ref(),
+            Port = http_helper:start(Name, '_', process_request(Ref, self())),
+            ct:pal("Testcase ~p listening on port ~p and reference ~p~n", [
+                Name, Port, {self(), Ref}
+            ]),
+            [{port, Port}, {ref, Ref} | Config];
+        false ->
+            Config
+    end.
 
 -spec end_per_testcase(ct_suite:ct_testcase(), ct_suite:ct_config()) -> term().
 end_per_testcase(Name, _Config) ->
-    http_helper:stop(Name),
+    lists:member(Name, log_messages_tests()) andalso http_helper:stop(Name),
     case lists:member(Name, app_tests()) of
         true ->
             application:stop(bugsnag_erlang),
@@ -350,7 +357,7 @@ assert_has_no_logs(CtConfig, FunctionName) ->
     ?assert(HasFunctionName).
 
 template_handler(CtConfig, Name) ->
-    {port, Port} = lists:keyfind(port, 1, CtConfig),
+    Port = proplists:get_value(port, CtConfig, 80),
     #{
         name => Name,
         pool_size => 1,
