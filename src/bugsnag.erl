@@ -62,7 +62,11 @@ It takes the following configuration options:
 Event to notify to BugSnag.
 
 1. Events that contain `#{class := _, reason := _, stacktrace := _}`, following the naming
-    convention as exemplified by `erlang:raise/3`, will be treated as exceptions to BugSnag.
+    convention as exemplified by `erlang:raise/3`, will be treated as exceptions to BugSnag;
+    or `#{kind := _, reason := _, stacktrace := _}` as per `telemetry`'s convention;
+    or `#{error := #{kind := _, message := _, stack := _}` as per
+    [DataDog](https://docs.datadoghq.com/logs/log_collection/?tab=http#attributes-for-stack-traces)
+    convention;
 2. Event structure will have all their printable key-value pairs as key-value pairs in `metaData`.
 3. `breadcrumbs` will always contain the timestamp of the event.
 """.
@@ -70,6 +74,12 @@ Event to notify to BugSnag.
     what => text(),
     message => text(),
     class => exit | error | throw,
+    kind => exit | error | throw,
+    error => #{
+        kind => exit | error | throw,
+        message => term(),
+        stacktrace => [{module(), atom(), non_neg_integer() | [term()], [{atom(), _}]}]
+    },
     reason => term(),
     stacktrace => [{module(), atom(), non_neg_integer() | [term()], [{atom(), _}]}],
     atom() => text()
@@ -112,7 +122,11 @@ remove_handler(Name) ->
 Notify of a bugsnag event.
 
 1. Events that contain `#{class := _, reason := _, stacktrace := _}`, following the naming
-    convention as exemplified by `erlang:raise/3`, will be treated as exceptions to BugSnag.
+    convention as exemplified by `erlang:raise/3`, will be treated as exceptions to BugSnag;
+    or `#{kind := _, reason := _, stacktrace := _}` as per `telemetry`'s convention;
+    or `#{error := #{kind := _, message := _, stack := _}` as per
+    [DataDog](https://docs.datadoghq.com/logs/log_collection/?tab=http#attributes-for-stack-traces)
+    convention;
 2. Event structure will have all their printable key-value pairs as key-value pairs in `metaData`
 """.
 -spec notify(config(), event(), metadata()) -> term().
@@ -179,15 +193,21 @@ generate_trace() ->
 
 -spec build_exception(map()) -> [bugsnag_api_error_reporting:exception()].
 build_exception(#{class := Class, reason := Reason, stacktrace := StackTrace}) ->
+    do_build_exception(Class, Reason, StackTrace);
+build_exception(#{kind := Class, reason := Reason, stacktrace := StackTrace}) ->
+    do_build_exception(Class, Reason, StackTrace);
+build_exception(#{error := #{kind := Class, message := Reason, stacktrace := StackTrace}}) ->
+    do_build_exception(Class, Reason, StackTrace);
+build_exception(_) ->
+    [].
+do_build_exception(Class, Reason, StackTrace) ->
     [
         #{
             'errorClass' => Class,
             message => Reason,
             stacktrace => process_trace(StackTrace)
         }
-    ];
-build_exception(_) ->
-    [].
+    ].
 
 -spec build_breadcrumb(map(), logger:metadata()) -> [bugsnag_api_error_reporting:breadcrumb()].
 build_breadcrumb(Report, #{time := Time}) ->
@@ -204,7 +224,14 @@ build_breadcrumb(Report, _) ->
     build_breadcrumb(Report, #{time => Time}).
 
 -spec breadcrumb_type(map()) -> bugsnag_api_error_reporting:breadcrumb_type().
+%% `erlang:raise/3`
 breadcrumb_type(#{class := _, reason := _, stacktrace := _}) ->
+    error;
+%% `telemetry` exceptions
+breadcrumb_type(#{kind := _, reason := _, stacktrace := _}) ->
+    error;
+%% DataDog errors
+breadcrumb_type(#{error := #{kind := _, message := _, stacktrace := _}}) ->
     error;
 breadcrumb_type(_) ->
     log.
