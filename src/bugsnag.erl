@@ -96,7 +96,7 @@ The default `mfa` is `{undefined, undefined, 0}` and `line` is also 0.
     line := non_neg_integer(),
     level => logger:level(),
     time => integer(),
-    atom => term()
+    atom() => term()
 }.
 
 -export_type([config/0, event/0, metadata/0, text/0]).
