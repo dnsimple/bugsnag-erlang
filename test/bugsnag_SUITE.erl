@@ -48,14 +48,22 @@ end_per_group(_, _Config) ->
     ok.
 
 -spec init_per_testcase(ct_suite:ct_testcase(), ct_suite:ct_config()) -> ct_suite:ct_config().
-init_per_testcase(_Name, Config) ->
-    Ref = make_ref(),
-    Port = http_helper:start('_', process_request(Ref)),
-    [{port, Port}, {ref, Ref} | Config].
+init_per_testcase(Name, Config) ->
+    case lists:member(Name, log_messages_tests()) of
+        true ->
+            Ref = make_ref(),
+            Port = http_helper:start(Name, '_', process_request(Ref, self())),
+            ct:pal("Testcase ~p listening on port ~p and reference ~p~n", [
+                Name, Port, {self(), Ref}
+            ]),
+            [{port, Port}, {ref, Ref} | Config];
+        false ->
+            Config
+    end.
 
 -spec end_per_testcase(ct_suite:ct_testcase(), ct_suite:ct_config()) -> term().
 end_per_testcase(Name, _Config) ->
-    http_helper:stop(),
+    lists:member(Name, log_messages_tests()) andalso http_helper:stop(Name),
     case lists:member(Name, app_tests()) of
         true ->
             application:stop(bugsnag_erlang),
@@ -85,6 +93,8 @@ logger_tests() ->
 
 log_messages_tests() ->
     [
+        generate_telemetry_exception_event_from_structured_log,
+        generate_datadog_exception_event_from_structured_log,
         generate_exception_event_from_structured_log,
         all_log_events_can_be_handled,
         verify_against_schema
@@ -203,10 +213,23 @@ process_traps_exits(CtConfig) ->
     ?assert(is_process_alive(Pid)),
     {comment, "Process successfully survived exit signals"}.
 
+-spec generate_telemetry_exception_event_from_structured_log(ct_suite:ct_config()) -> term().
+generate_telemetry_exception_event_from_structured_log(CtConfig) ->
+    do_generate_exception_event_from_structured_log(CtConfig, telemetry, ?FUNCTION_NAME).
+
+-spec generate_datadog_exception_event_from_structured_log(ct_suite:ct_config()) -> term().
+generate_datadog_exception_event_from_structured_log(CtConfig) ->
+    do_generate_exception_event_from_structured_log(CtConfig, datadog, ?FUNCTION_NAME).
+
 -spec generate_exception_event_from_structured_log(ct_suite:ct_config()) -> term().
 generate_exception_event_from_structured_log(CtConfig) ->
-    _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
-    generate_exception(bugsnag_gen_trace),
+    do_generate_exception_event_from_structured_log(CtConfig, std, ?FUNCTION_NAME).
+
+-spec do_generate_exception_event_from_structured_log(ct_suite:ct_config(), atom(), atom()) ->
+    term().
+do_generate_exception_event_from_structured_log(CtConfig, Type, Name) ->
+    _ = bugsnag:add_handler(template_handler(CtConfig, Name)),
+    generate_exception(bugsnag_gen_trace, Type),
     {ok, Logs} = wait_until_at_least_logs(CtConfig, 1),
     Pred = fun
         (
@@ -247,7 +270,7 @@ all_log_events_can_be_handled(CtConfig) ->
 -spec verify_against_schema(ct_suite:ct_config()) -> term().
 verify_against_schema(CtConfig) ->
     _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
-    generate_exception(bugsnag_gen_trace),
+    generate_exception(bugsnag_gen_trace, std),
     Logs = get_all_delivered_payloads(CtConfig),
     Schema = schema(),
     verify_schema(Schema, Logs),
@@ -289,8 +312,7 @@ get_all_delivered_payloads(CtConfig) ->
     ct:pal("All logged events ~p~n", [Logs]),
     Logs.
 
-process_request(Ref) ->
-    Pid = self(),
+process_request(Ref, Pid) ->
     fun(Req0) ->
         {ok, Data, Req} = cowboy_req:read_body(Req0, #{length => 8000000, period => 5000}),
         Pid ! {Ref, Data},
@@ -335,7 +357,7 @@ assert_has_no_logs(CtConfig, FunctionName) ->
     ?assert(HasFunctionName).
 
 template_handler(CtConfig, Name) ->
-    {port, Port} = lists:keyfind(port, 1, CtConfig),
+    Port = proplists:get_value(port, CtConfig, 80),
     #{
         name => Name,
         pool_size => 1,
@@ -344,17 +366,36 @@ template_handler(CtConfig, Name) ->
         endpoint => "http://localhost:" ++ integer_to_list(Port)
     }.
 
-generate_exception(Reason0) ->
+generate_exception(Reason0, Type) ->
     try
         throw(Reason0)
     catch
         Class:Reason:StactTrace ->
-            ?LOG_ERROR(#{
-                what => generate_exception,
-                class => Class,
-                reason => Reason,
-                stacktrace => StactTrace
-            })
+            case Type of
+                std ->
+                    ?LOG_ERROR(#{
+                        what => generate_exception,
+                        class => Class,
+                        reason => Reason,
+                        stacktrace => StactTrace
+                    });
+                telemetry ->
+                    ?LOG_ERROR(#{
+                        what => generate_exception,
+                        kind => Class,
+                        reason => Reason,
+                        stacktrace => StactTrace
+                    });
+                datadog ->
+                    ?LOG_ERROR(#{
+                        what => generate_exception,
+                        error => #{
+                            kind => Class,
+                            message => Reason,
+                            stacktrace => StactTrace
+                        }
+                    })
+            end
     end.
 
 schema() ->

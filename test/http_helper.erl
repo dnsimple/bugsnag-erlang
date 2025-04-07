@@ -1,20 +1,20 @@
 -module(http_helper).
 
--export([start/2, stop/0, init/2, terminate/3]).
+-export([start/3, stop/1, init/2, terminate/3]).
 -behaviour(cowboy_handler).
 
-start(Path, HandleFun) ->
-    application:ensure_all_started(cowboy),
+start(Name, Path, HandleFun) ->
+    {ok, _} = application:ensure_all_started([cowboy, ranch]),
     Dispatch = cowboy_router:compile([{'_', [{Path, ?MODULE, HandleFun}]}]),
     {ok, _} = cowboy:start_clear(
-        http_helper_listener,
+        Name,
         #{socket_opts => [{port, 0}], num_acceptors => 100, max_connections => infinity},
         #{env => #{dispatch => Dispatch}}
     ),
-    ranch:get_port(http_helper_listener).
+    ranch:get_port(Name).
 
-stop() ->
-    cowboy:stop_listener(http_helper_listener).
+stop(Name) ->
+    ok = cowboy:stop_listener(Name).
 
 %% Cowboy handler callbacks
 
