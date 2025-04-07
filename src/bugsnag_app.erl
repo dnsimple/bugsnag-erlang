@@ -48,7 +48,7 @@ maybe_set_error_logger() ->
 
 -spec is_enabled() -> boolean().
 is_enabled() ->
-    true =:= application:get_env(bugsnag_erlang, enabled, true).
+    {ok, true} =:= application:get_env(bugsnag_erlang, enabled).
 
 -spec get_release_state() -> binary().
 get_release_state() ->
