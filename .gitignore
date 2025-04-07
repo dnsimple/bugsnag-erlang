@@ -1,4 +1,5 @@
 *.dump
+log/
 
 # local setup
 .tool-versions
@@ -7,4 +8,5 @@ sys.config
 # rebar 3
 .rebar3
 _build/
+_checkouts/
 doc/
