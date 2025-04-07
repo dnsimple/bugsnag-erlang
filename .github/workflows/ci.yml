@@ -56,3 +56,4 @@ jobs:
         uses: coverallsapp/github-action@v2
         with:
           file: _build/test/covertool/bugsnag_erlang.covertool.xml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
