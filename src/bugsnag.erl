@@ -80,7 +80,7 @@ Event to notify to BugSnag.
     error => #{
         kind => exit | error | throw,
         message => term(),
-        stacktrace => [{module(), atom(), non_neg_integer() | [term()], [{atom(), _}]}]
+        stack => [{module(), atom(), non_neg_integer() | [term()], [{atom(), _}]}]
     },
     reason => term(),
     stacktrace => [{module(), atom(), non_neg_integer() | [term()], [{atom(), _}]}],
