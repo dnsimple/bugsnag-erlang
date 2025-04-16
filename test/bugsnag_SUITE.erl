@@ -388,7 +388,7 @@ generate_exception(Reason0, Type) ->
                         error => #{
                             kind => Class,
                             message => Reason,
-                            stacktrace => StactTrace
+                            stack => StactTrace
                         }
                     })
             end

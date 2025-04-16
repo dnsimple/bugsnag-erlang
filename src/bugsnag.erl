@@ -198,10 +198,11 @@ build_exception(#{class := Class, reason := Reason, stacktrace := StackTrace}) -
     do_build_exception(Class, Reason, StackTrace);
 build_exception(#{kind := Class, reason := Reason, stacktrace := StackTrace}) ->
     do_build_exception(Class, Reason, StackTrace);
-build_exception(#{error := #{kind := Class, message := Reason, stacktrace := StackTrace}}) ->
+build_exception(#{error := #{kind := Class, message := Reason, stack := StackTrace}}) ->
     do_build_exception(Class, Reason, StackTrace);
 build_exception(_) ->
     [].
+
 do_build_exception(Class, Reason, StackTrace) ->
     [
         #{
