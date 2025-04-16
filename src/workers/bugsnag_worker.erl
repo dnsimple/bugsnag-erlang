@@ -21,7 +21,7 @@
     handle_info/2
 ]).
 
--record(state, {
+-record(bugsnag_state, {
     pending :: undefined | reference(),
     acc = queue:new() :: queue:queue(map()),
     acc_size = 0 :: non_neg_integer(),
@@ -32,7 +32,7 @@
     base_event :: bugsnag_api_error_reporting:event(),
     base_report :: bugsnag_api_error_reporting:error_report()
 }).
--opaque state() :: #state{}.
+-opaque state() :: #bugsnag_state{}.
 
 -type legacy() ::
     #{
@@ -74,10 +74,10 @@ init({N, #{name := Name} = Config}) ->
 
 -spec handle_cast({legacy, payload()} | {event, bugsnag_api_error_reporting:event()}, state()) ->
     {noreply, state()}.
-handle_cast({event, Event}, #state{} = State) when is_map(Event) ->
+handle_cast({event, Event}, #bugsnag_state{} = State) when is_map(Event) ->
     send_pending(Event, State);
 %% TODO: This is to support lager and error_logger, to be removed
-handle_cast({legacy, Legacy}, #state{} = State) ->
+handle_cast({legacy, Legacy}, #bugsnag_state{} = State) ->
     #{type := Type, reason := Reason, message := Message, trace := Trace} = Legacy,
     Event = #{
         exceptions => [
@@ -98,39 +98,44 @@ handle_call(_, _, State) ->
     {reply, bad_request, State}.
 
 -spec handle_info(term(), state()) -> {noreply, state()}.
-handle_info({http, {Ref, {{_, 200, _}, _, _}}}, #state{pending = Ref} = State) ->
-    send_pending(State#state{pending = undefined});
-handle_info({http, {Ref, {{_, Status, ReasonPhrase}, _, _}}}, #state{pending = Ref} = State) ->
+handle_info({http, {Ref, {{_, 200, _}, _, _}}}, #bugsnag_state{pending = Ref} = State) ->
+    send_pending(State#bugsnag_state{pending = undefined});
+handle_info(
+    {http, {Ref, {{_, Status, ReasonPhrase}, _, _}}}, #bugsnag_state{pending = Ref} = State
+) ->
     ?LOG_WARNING(#{what => send_status_failed, status => Status, reason => ReasonPhrase}),
-    send_pending(State#state{pending = undefined});
-handle_info({http, {Ref, Unknown}}, #state{pending = Ref} = State) ->
+    send_pending(State#bugsnag_state{pending = undefined});
+handle_info({http, {Ref, Unknown}}, #bugsnag_state{pending = Ref} = State) ->
     ?LOG_WARNING(#{what => send_status_failed, reason => Unknown}),
-    send_pending(State#state{pending = undefined});
+    send_pending(State#bugsnag_state{pending = undefined});
 handle_info(_Info, State) ->
     {noreply, State}.
 
 % Internal API
 
 send_pending(
-    Event, #state{acc = Acc, acc_size = Limit, acc_limit = Limit, base_event = BaseEvent} = State
+    Event,
+    #bugsnag_state{acc = Acc, acc_size = Limit, acc_limit = Limit, base_event = BaseEvent} = State
 ) ->
     {{value, ToDiscard}, Acc1} = queue:out(Acc),
     ?LOG_WARNING(#{what => bugsnag_discarding_event_overflow, event => ToDiscard}),
-    send_pending(State#state{acc = queue:in(maps:merge(BaseEvent, Event), Acc1)});
-send_pending(Event, #state{acc = Acc, acc_size = AccSize, base_event = BaseEvent} = State) ->
+    send_pending(State#bugsnag_state{acc = queue:in(maps:merge(BaseEvent, Event), Acc1)});
+send_pending(Event, #bugsnag_state{acc = Acc, acc_size = AccSize, base_event = BaseEvent} = State) ->
     MergedEvent = maps:merge(BaseEvent, Event),
-    send_pending(State#state{acc = queue:in(MergedEvent, Acc), acc_size = AccSize + 1}).
+    send_pending(State#bugsnag_state{acc = queue:in(MergedEvent, Acc), acc_size = AccSize + 1}).
 
 send_pending(
-    #state{pending = undefined, acc = Acc, acc_size = N, api_key = ApiKey, base_report = BaseReport} =
+    #bugsnag_state{
+        pending = undefined, acc = Acc, acc_size = N, api_key = ApiKey, base_report = BaseReport
+    } =
         State
 ) when is_integer(N), 0 < N ->
     Report = BaseReport#{events := queue:to_list(Acc)},
     Ref = deliver_payload(ApiKey, Report, State),
-    {noreply, State#state{pending = Ref, acc = queue:new()}};
-send_pending(#state{acc_size = 0} = State) ->
+    {noreply, State#bugsnag_state{pending = Ref, acc = queue:new()}};
+send_pending(#bugsnag_state{acc_size = 0} = State) ->
     {noreply, State};
-send_pending(#state{} = State) ->
+send_pending(#bugsnag_state{} = State) ->
     {noreply, State}.
 
 -spec do_init(bugsnag:config()) -> {ok, state()}.
@@ -138,7 +143,7 @@ do_init(#{api_key := ApiKey, release_stage := ReleaseStage} = Config) ->
     process_flag(trap_exit, true),
     Base = build_base_event(ReleaseStage),
     Report = build_base_report(),
-    {ok, #state{
+    {ok, #bugsnag_state{
         acc_limit = maps:get(events_limit, Config, ?NOTIFIER_ACC_LIMIT),
         api_key = ApiKey,
         release_stage = ReleaseStage,
@@ -169,7 +174,7 @@ process_trace([Current | Rest], ProcessedTrace) ->
     ?LOG_WARNING(#{what => discarding_stack_trace_line, line => Current}),
     process_trace(Rest, ProcessedTrace).
 
-deliver_payload(ApiKey, Payload, #state{endpoint = Endpoint}) ->
+deliver_payload(ApiKey, Payload, #bugsnag_state{endpoint = Endpoint}) ->
     Headers = [
         {"Bugsnag-Api-Key", ApiKey},
         {"Bugsnag-Payload-Version", "5"}
