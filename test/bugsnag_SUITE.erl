@@ -248,34 +248,19 @@ generate_exception_event_from_structured_log(CtConfig) ->
 do_generate_exception_event_from_structured_log(CtConfig, Type, Name) ->
     _ = bugsnag:add_handler(template_handler(CtConfig, Name)),
     generate_exception(bugsnag_gen_trace, Type),
-    {ok, Logs} = wait_until_at_least_logs(CtConfig, Name, 1),
-    Pred = fun
-        (
-            #{
-                <<"events">> := [
-                    #{
-                        <<"exceptions">> := [
-                            #{
-                                <<"errorClass">> := <<"throw">>,
-                                <<"message">> := <<"bugsnag_gen_trace">>
-                            }
-                        ]
-                    }
-                ]
-            }
-        ) ->
-            true;
-        (_) ->
-            false
-    end,
-    Result = lists:any(Pred, Logs),
-    ?assert(Result, Logs),
+    Validator = fun(ReturnValue) -> lists:any(fun has_exception/1, ReturnValue) end,
+    {ok, Logs} = wait_helper:wait_until(
+        fun() -> get_all_delivered_payloads(CtConfig, Name) end,
+        expected,
+        #{no_throw => true, time_left => timer:seconds(1), sleep_time => 50, validator => Validator}
+    ),
     verify_schema(schema(), Logs),
     {comment, "Generated exception formatted correctly"}.
 
 -spec all_log_events_can_be_handled(ct_suite:ct_config()) -> term().
 all_log_events_can_be_handled(CtConfig) ->
-    _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
+    Handler = template_handler(CtConfig, ?FUNCTION_NAME),
+    _ = bugsnag:add_handler(Handler, #{level => all}),
     generate_all_log_level_events_and_types(),
     case wait_until_at_least_logs(CtConfig, ?FUNCTION_NAME, 8) of
         {ok, Logs} ->
@@ -393,6 +378,24 @@ generate_exception(Reason0, Type) ->
                     })
             end
     end.
+
+has_exception(
+    #{
+        <<"events">> := [
+            #{
+                <<"exceptions">> := [
+                    #{
+                        <<"errorClass">> := <<"throw">>,
+                        <<"message">> := <<"bugsnag_gen_trace">>
+                    }
+                ]
+            }
+        ]
+    }
+) ->
+    true;
+has_exception(_) ->
+    false.
 
 schema() ->
     json:decode(list_to_binary(raw_schema())).
