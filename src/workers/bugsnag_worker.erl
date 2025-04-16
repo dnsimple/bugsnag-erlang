@@ -231,8 +231,7 @@ build_base_report(Name) ->
 
 do_deliver_payload(Endpoint, Headers, Payload) ->
     Request = {Endpoint, Headers, "application/json", json:encode(Payload)},
-    Alias = alias([reply]),
     HttpOptions = [{timeout, 5000}],
-    Options = [{sync, false}, {receiver, Alias}],
+    Options = [{sync, false}, {receiver, self()}],
     {ok, RequestId} = httpc:request(post, Request, HttpOptions, Options),
     RequestId.
