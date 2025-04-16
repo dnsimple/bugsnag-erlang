@@ -35,6 +35,18 @@ end_per_suite(Config) ->
     Config.
 
 -spec init_per_group(ct_suite:ct_groupname(), ct_suite:ct_config()) -> ct_suite:ct_config().
+init_per_group(log_messages, Config) ->
+    Pid = spawn(fun() ->
+        ets:new(?MODULE, [named_table, public, duplicate_bag]),
+        receive
+            stop -> ok
+        end
+    end),
+    application:set_env(bugsnag_erlang, enabled, false),
+    {ok, _} = application:ensure_all_started([bugsnag_erlang]),
+    Port = http_helper:start(?MODULE, '_', process_request()),
+    ct:pal("Listener ~p listening on port ~p~n", [?MODULE, Port]),
+    [{?MODULE, Pid}, {port, Port} | Config];
 init_per_group(app, Config) ->
     Config;
 init_per_group(_, Config) ->
@@ -43,27 +55,22 @@ init_per_group(_, Config) ->
     Config.
 
 -spec end_per_group(ct_suite:ct_groupname(), ct_suite:ct_config()) -> term().
+end_per_group(log_messages, Config) ->
+    Pid = proplists:get_value(?MODULE, Config),
+    Pid ! stop,
+    application:stop(bugsnag_erlang),
+    http_helper:stop(?MODULE);
 end_per_group(_, _Config) ->
     application:stop(bugsnag_erlang),
     ok.
 
 -spec init_per_testcase(ct_suite:ct_testcase(), ct_suite:ct_config()) -> ct_suite:ct_config().
-init_per_testcase(Name, Config) ->
-    case lists:member(Name, log_messages_tests()) of
-        true ->
-            Ref = make_ref(),
-            Port = http_helper:start(Name, '_', process_request(Ref, self())),
-            ct:pal("Testcase ~p listening on port ~p and reference ~p~n", [
-                Name, Port, {self(), Ref}
-            ]),
-            [{port, Port}, {ref, Ref} | Config];
-        false ->
-            Config
-    end.
+init_per_testcase(_Name, Config) ->
+    Config.
 
 -spec end_per_testcase(ct_suite:ct_testcase(), ct_suite:ct_config()) -> term().
 end_per_testcase(Name, _Config) ->
-    lists:member(Name, log_messages_tests()) andalso http_helper:stop(Name),
+    lists:member(Name, log_messages_tests()) andalso bugsnag:remove_handler(Name),
     case lists:member(Name, app_tests()) of
         true ->
             application:stop(bugsnag_erlang),
@@ -79,7 +86,8 @@ app_tests() ->
         can_start_app_with_disabled,
         can_start_app_with_enabled,
         fails_to_start_with_wrong_api_key,
-        can_start_with_different_release_states
+        can_start_with_different_release_states,
+        can_start_with_notifier_name
     ].
 
 logger_tests() ->
@@ -150,6 +158,16 @@ can_start_with_different_release_states(_) ->
     end,
     lists:foreach(Fun, List).
 
+-spec can_start_with_notifier_name(ct_suite:ct_config()) -> term().
+can_start_with_notifier_name(_) ->
+    application:set_env(bugsnag_erlang, enabled, true),
+    application:set_env(bugsnag_erlang, api_key, <<"dummy">>),
+    application:set_env(bugsnag_erlang, notifier_name, <<"dummy">>),
+    {ok, _} = application:ensure_all_started([bugsnag_erlang]),
+    Res = supervisor:count_children(bugsnag_sup),
+    ?assert(lists:any(fun({_, Count}) -> Count =:= 1 end, Res), Res),
+    application:stop(bugsnag_erlang).
+
 -spec can_start_and_stop_the_default_logger(ct_suite:ct_config()) -> term().
 can_start_and_stop_the_default_logger(CtConfig) ->
     {ok, _Sup} = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
@@ -196,7 +214,7 @@ does_not_crash_on_bad_messages(CtConfig) ->
     ct:pal("Sending different invalid messages to the process..."),
     bugsnag_worker:notify_worker(Config, #{something => <<"misterious">>}),
     bugsnag_worker:notify_worker(Config, #{ref => make_ref()}),
-    Pid = get_worker(?FUNCTION_NAME),
+    Pid = get_worker(CtConfig, ?FUNCTION_NAME),
     gen_server:cast(Pid, #{ref => make_ref()}),
     gen_server:call(Pid, #{ref => make_ref()}),
     Pid ! random_message,
@@ -207,7 +225,7 @@ does_not_crash_on_bad_messages(CtConfig) ->
 -spec process_traps_exits(ct_suite:ct_config()) -> term().
 process_traps_exits(CtConfig) ->
     _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
-    Pid = get_worker(?FUNCTION_NAME),
+    Pid = get_worker(CtConfig, ?FUNCTION_NAME),
     ct:pal("Verifiying that the process won't be killed by exits:"),
     exit(Pid, shutdown),
     ?assert(is_process_alive(Pid)),
@@ -230,36 +248,21 @@ generate_exception_event_from_structured_log(CtConfig) ->
 do_generate_exception_event_from_structured_log(CtConfig, Type, Name) ->
     _ = bugsnag:add_handler(template_handler(CtConfig, Name)),
     generate_exception(bugsnag_gen_trace, Type),
-    {ok, Logs} = wait_until_at_least_logs(CtConfig, 1),
-    Pred = fun
-        (
-            #{
-                <<"events">> := [
-                    #{
-                        <<"exceptions">> := [
-                            #{
-                                <<"errorClass">> := <<"throw">>,
-                                <<"message">> := <<"bugsnag_gen_trace">>
-                            }
-                        ]
-                    }
-                ]
-            }
-        ) ->
-            true;
-        (_) ->
-            false
-    end,
-    Result = lists:any(Pred, Logs),
-    ?assert(Result, Logs),
+    Validator = fun(ReturnValue) -> lists:any(fun has_exception/1, ReturnValue) end,
+    {ok, Logs} = wait_helper:wait_until(
+        fun() -> get_all_delivered_payloads(CtConfig, Name) end,
+        expected,
+        #{no_throw => true, time_left => timer:seconds(1), sleep_time => 50, validator => Validator}
+    ),
     verify_schema(schema(), Logs),
     {comment, "Generated exception formatted correctly"}.
 
 -spec all_log_events_can_be_handled(ct_suite:ct_config()) -> term().
 all_log_events_can_be_handled(CtConfig) ->
-    _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
+    Handler = template_handler(CtConfig, ?FUNCTION_NAME),
+    _ = bugsnag:add_handler(Handler, #{level => all}),
     generate_all_log_level_events_and_types(),
-    case wait_until_at_least_logs(CtConfig, 8) of
+    case wait_until_at_least_logs(CtConfig, ?FUNCTION_NAME, 8) of
         {ok, Logs} ->
             verify_schema(schema(), Logs),
             {comment, "All log levels were triggered."};
@@ -271,7 +274,7 @@ all_log_events_can_be_handled(CtConfig) ->
 verify_against_schema(CtConfig) ->
     _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
     generate_exception(bugsnag_gen_trace, std),
-    Logs = get_all_delivered_payloads(CtConfig),
+    Logs = get_all_delivered_payloads(CtConfig, ?FUNCTION_NAME),
     Schema = schema(),
     verify_schema(Schema, Logs),
     {comment, "All returned errors are validated against the schema"}.
@@ -295,66 +298,43 @@ generate_all_log_level_events_and_types() ->
     logger:log(info, #{what => information_SUITE, num => 7, context => #{from => log_all_events}}),
     ?LOG_DEBUG("8. log_all_events: a debug log _SUITE ~p", [#{debug => true}]).
 
--spec get_worker(atom()) -> pid().
-get_worker(Name) ->
+-spec get_worker(ct_suite:ct_config(), atom()) -> pid().
+get_worker(_CtConfig, Name) ->
     ets:lookup_element(Name, 1, 2).
 
--spec get_all_delivered_payloads(ct_suite:ct_config()) -> [term()].
-get_all_delivered_payloads(CtConfig) ->
-    {ref, Ref} = lists:keyfind(ref, 1, CtConfig),
-    Logs0 = receive_all(Ref, []),
-    Logs = lists:flatmap(
-        fun(#{<<"events">> := Events} = Log) ->
-            [Log#{<<"events">> := [Event]} || Event <- Events]
-        end,
-        Logs0
-    ),
+-spec get_all_delivered_payloads(ct_suite:ct_config(), atom()) -> [term()].
+get_all_delivered_payloads(_CtConfig, Name) ->
+    Logs0 = receive_all(atom_to_binary(Name), []),
+    Logs = lists:map(fun({_, Log}) -> Log end, Logs0),
     ct:pal("All logged events ~p~n", [Logs]),
     Logs.
 
-process_request(Ref, Pid) ->
+process_request() ->
     fun(Req0) ->
         {ok, Data, Req} = cowboy_req:read_body(Req0, #{length => 8000000, period => 5000}),
-        Pid ! {Ref, Data},
+        Json = json:decode(Data),
+        #{<<"notifier">> := #{<<"name">> := Name}, <<"events">> := Events} = Json,
+        [ets:insert(?MODULE, {Name, Json#{<<"events">> := [Event]}}) || Event <- Events],
         cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, <<"OK">>, Req)
     end.
 
-receive_all(Ref, Acc) ->
-    receive
-        {Ref, Data} ->
-            receive_all(Ref, [json:decode(Data) | Acc])
-    after 0 ->
-        lists:reverse(Acc)
+receive_all(Name, Acc) ->
+    ct:pal("Value ~p~n", [ets:tab2list(?MODULE)]),
+    case ets:take(?MODULE, Name) of
+        [] ->
+            Acc;
+        [_ | _] = More ->
+            Acc ++ More
     end.
 
--spec wait_until_at_least_logs(ct_suite:ct_config(), non_neg_integer()) -> [term()].
-wait_until_at_least_logs(CtConfig, Num) ->
+-spec wait_until_at_least_logs(ct_suite:ct_config(), atom(), non_neg_integer()) -> [term()].
+wait_until_at_least_logs(CtConfig, Name, Num) ->
     Validator = fun(ReturnValue) -> Num =< length(ReturnValue) end,
     wait_helper:wait_until(
-        fun() -> get_all_delivered_payloads(CtConfig) end,
+        fun() -> get_all_delivered_payloads(CtConfig, Name) end,
         expected,
         #{no_throw => true, time_left => timer:seconds(1), sleep_time => 50, validator => Validator}
     ).
-
--spec assert_has_logs(ct_suite:ct_config(), atom()) -> ok.
-assert_has_logs(CtConfig, FunctionName) ->
-    HasFunctionName = lists:any(
-        fun(Log) ->
-            atom_to_binary(FunctionName) =:= lists:nth(6, Log)
-        end,
-        get_all_delivered_payloads(CtConfig)
-    ),
-    ?assert(HasFunctionName).
-
--spec assert_has_no_logs(ct_suite:ct_config(), atom()) -> ok.
-assert_has_no_logs(CtConfig, FunctionName) ->
-    HasFunctionName = lists:all(
-        fun(Log) ->
-            atom_to_binary(FunctionName) =/= lists:nth(6, Log)
-        end,
-        get_all_delivered_payloads(CtConfig)
-    ),
-    ?assert(HasFunctionName).
 
 template_handler(CtConfig, Name) ->
     Port = proplists:get_value(port, CtConfig, 80),
@@ -363,7 +343,8 @@ template_handler(CtConfig, Name) ->
         pool_size => 1,
         api_key => <<"dummy">>,
         release_stage => production,
-        endpoint => "http://localhost:" ++ integer_to_list(Port)
+        endpoint => "http://localhost:" ++ integer_to_list(Port),
+        notifier_name => atom_to_binary(Name)
     }.
 
 generate_exception(Reason0, Type) ->
@@ -392,11 +373,29 @@ generate_exception(Reason0, Type) ->
                         error => #{
                             kind => Class,
                             message => Reason,
-                            stacktrace => StactTrace
+                            stack => StactTrace
                         }
                     })
             end
     end.
+
+has_exception(
+    #{
+        <<"events">> := [
+            #{
+                <<"exceptions">> := [
+                    #{
+                        <<"errorClass">> := <<"throw">>,
+                        <<"message">> := <<"bugsnag_gen_trace">>
+                    }
+                ]
+            }
+        ]
+    }
+) ->
+    true;
+has_exception(_) ->
+    false.
 
 schema() ->
     json:decode(list_to_binary(raw_schema())).
