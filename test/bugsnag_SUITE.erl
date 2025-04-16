@@ -19,7 +19,7 @@ groups() ->
     [
         {app, [sequence], app_tests()},
         {logger, [sequence], logger_tests()},
-        {log_messages, [sequence], log_messages_tests()}
+        {log_messages, [parallel], log_messages_tests()}
     ].
 
 -spec init_per_suite(ct_suite:ct_config()) -> ct_suite:ct_config().
@@ -304,7 +304,7 @@ get_worker(_CtConfig, Name) ->
 
 -spec get_all_delivered_payloads(ct_suite:ct_config(), atom()) -> [term()].
 get_all_delivered_payloads(_CtConfig, Name) ->
-    Logs0 = receive_all(atom_to_binary(Name), []),
+    Logs0 = ets:lookup(?MODULE, atom_to_binary(Name)),
     Logs = lists:map(fun({_, Log}) -> Log end, Logs0),
     ct:pal("All logged events ~p~n", [Logs]),
     Logs.
@@ -316,15 +316,6 @@ process_request() ->
         #{<<"notifier">> := #{<<"name">> := Name}, <<"events">> := Events} = Json,
         [ets:insert(?MODULE, {Name, Json#{<<"events">> := [Event]}}) || Event <- Events],
         cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, <<"OK">>, Req)
-    end.
-
-receive_all(Name, Acc) ->
-    ct:pal("Value ~p~n", [ets:tab2list(?MODULE)]),
-    case ets:take(?MODULE, Name) of
-        [] ->
-            Acc;
-        [_ | _] = More ->
-            Acc ++ More
     end.
 
 -spec wait_until_at_least_logs(ct_suite:ct_config(), atom(), non_neg_integer()) -> [term()].
