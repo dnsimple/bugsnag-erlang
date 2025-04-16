@@ -4,7 +4,6 @@
 -include_lib("kernel/include/logger.hrl").
 
 -define(NOTIFY_ENDPOINT, <<"https://notify.bugsnag.com">>).
--define(NOTIFIER_NAME, <<"Bugsnag Erlang">>).
 -define(NOTIFIER_URL, <<"https://github.com/dnsimple/bugsnag-erlang">>).
 -define(NOTIFIER_ACC_LIMIT, 1000).
 
@@ -139,10 +138,10 @@ send_pending(#bugsnag_state{} = State) ->
     {noreply, State}.
 
 -spec do_init(bugsnag:config()) -> {ok, state()}.
-do_init(#{api_key := ApiKey, release_stage := ReleaseStage} = Config) ->
+do_init(#{api_key := ApiKey, release_stage := ReleaseStage, notifier_name := Name} = Config) ->
     process_flag(trap_exit, true),
     Base = build_base_event(ReleaseStage),
-    Report = build_base_report(),
+    Report = build_base_report(Name),
     {ok, #bugsnag_state{
         acc_limit = maps:get(events_limit, Config, ?NOTIFIER_ACC_LIMIT),
         api_key = ApiKey,
@@ -218,13 +217,13 @@ build_base_event(ReleaseStage) ->
         exceptions => []
     }.
 
--spec build_base_report() -> bugsnag_api_error_reporting:error_report().
-build_base_report() ->
+-spec build_base_report(binary()) -> bugsnag_api_error_reporting:error_report().
+build_base_report(Name) ->
     #{
         'payloadVersion' => 5,
         notifier => #{
             url => ?NOTIFIER_URL,
-            name => ?NOTIFIER_NAME,
+            name => Name,
             version => get_version()
         },
         events => []

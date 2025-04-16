@@ -36,7 +36,8 @@ do_start() ->
                 release_stage => get_release_state(),
                 name => get_handler_name(),
                 pool_size => get_pool_size(),
-                events_limit => get_events_limit()
+                events_limit => get_events_limit(),
+                notifier_name => get_notifier_name()
             },
             bugsnag_sup:start_link(#{config => Opts})
     end.
@@ -103,5 +104,14 @@ get_events_limit() ->
         undefined ->
             1000;
         {ok, Value} when is_integer(Value), Value >= 1 ->
+            Value
+    end.
+
+-spec get_notifier_name() -> binary().
+get_notifier_name() ->
+    case application:get_env(bugsnag_erlang, notifier_name) of
+        undefined ->
+            <<"Bugsnag Erlang">>;
+        {ok, Value} when is_binary(Value) ->
             Value
     end.

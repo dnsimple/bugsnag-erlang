@@ -45,6 +45,7 @@ It takes the following configuration options:
     once. If event queues fill too fast, older non-sent events will be dropped.
     The default is 1000, as an average big event including stacktraces is no bigger than 1KB,
     therefore 1000 events should keep the payload below 1MB.
+- `notifier_name`: a string, the notifier name as required by BugSnag. Defaults to "Bugsnag Erlang".
 """.
 -type config() :: #{
     api_key := binary(),
@@ -52,7 +53,8 @@ It takes the following configuration options:
     name := logger_handler:id(),
     pool_size := pos_integer(),
     endpoint => binary(),
-    events_limit => pos_integer()
+    events_limit => pos_integer(),
+    notifier_name => binary()
 }.
 
 -doc "A printable string".
