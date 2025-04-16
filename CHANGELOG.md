@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## main
 
+## 3.0.0-rc3
+
+- Fix an issue where `httpc` doesn't support aliases until OTP27.2
+- Add custom notifier names to handlers
+- Stabilise tests
+
+## 3.0.0-rc2
+
+- Extra exception formats following conventions by datadog and telemetry.
+- Modify how enabled flag is read
+
 ## 3.0.0-rc1
 
 Added:
