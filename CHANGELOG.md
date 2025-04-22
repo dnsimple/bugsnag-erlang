@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## main
 
+## 3.0.0-rc4
+
+- Fix a bug getting the right app version
+
 ## 3.0.0-rc3
 
 - Fix an issue where `httpc` doesn't support aliases until OTP27.2
