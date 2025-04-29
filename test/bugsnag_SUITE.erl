@@ -87,6 +87,9 @@ app_tests() ->
         can_start_app_with_enabled,
         fails_to_start_with_wrong_api_key,
         can_start_with_different_release_states,
+        can_start_with_pool_size,
+        can_start_with_handler_name,
+        can_start_with_events_limit,
         can_start_with_notifier_name
     ].
 
@@ -137,7 +140,7 @@ can_start_app_with_enabled(_) ->
 -spec fails_to_start_with_wrong_api_key(ct_suite:ct_config()) -> term().
 fails_to_start_with_wrong_api_key(_) ->
     application:set_env(bugsnag_erlang, enabled, true),
-    List = ["ENTER_API_KEY", undefined],
+    List = ["ENTER_API_KEY", "Zażółć", undefined],
     Fun = fun(ApiKey) ->
         application:set_env(bugsnag_erlang, api_key, ApiKey),
         ?assertMatch({error, _}, application:ensure_all_started([bugsnag_erlang]))
@@ -148,7 +151,7 @@ fails_to_start_with_wrong_api_key(_) ->
 can_start_with_different_release_states(_) ->
     application:set_env(bugsnag_erlang, enabled, true),
     application:set_env(bugsnag_erlang, api_key, <<"dummy">>),
-    List = [development, staging, production, test, "production"],
+    List = [development, staging, production, test, "production", "Zażółć"],
     Fun = fun(ReleaseState) ->
         application:set_env(bugsnag_erlang, release_state, ReleaseState),
         {ok, _} = application:ensure_all_started([bugsnag_erlang]),
@@ -158,14 +161,40 @@ can_start_with_different_release_states(_) ->
     end,
     lists:foreach(Fun, List).
 
+-spec can_start_with_pool_size(ct_suite:ct_config()) -> term().
+can_start_with_pool_size(Config) ->
+    Extra = fun() ->
+        [{_, Pid0, _, _}] = supervisor:which_children(bugsnag_sup),
+        [Pid1] = [P || {bugsnag_worker_sup, P, _, _} <- supervisor:which_children(Pid0)],
+        Res = supervisor:which_children(Pid1),
+        ?assertEqual(7, length(Res), Res)
+    end,
+    can_start_with_config_key(Config, pool_size, 7, Extra).
+
+-spec can_start_with_handler_name(ct_suite:ct_config()) -> term().
+can_start_with_handler_name(Config) ->
+    can_start_with_config_key(Config, handler_name, random_handler_name).
+
+-spec can_start_with_events_limit(ct_suite:ct_config()) -> term().
+can_start_with_events_limit(Config) ->
+    can_start_with_config_key(Config, events_limit, 42).
+
 -spec can_start_with_notifier_name(ct_suite:ct_config()) -> term().
-can_start_with_notifier_name(_) ->
+can_start_with_notifier_name(Config) ->
+    can_start_with_config_key(Config, notifier_name, <<"dummy">>).
+
+-spec can_start_with_config_key(ct_suite:ct_config(), atom(), dynamic()) -> term().
+can_start_with_config_key(Config, Key, Value) ->
+    can_start_with_config_key(Config, Key, Value, fun() -> ok end).
+
+-spec can_start_with_config_key(ct_suite:ct_config(), atom(), dynamic(), fun(() -> any())) ->
+    term().
+can_start_with_config_key(_, Key, Value, Extra) ->
     application:set_env(bugsnag_erlang, enabled, true),
     application:set_env(bugsnag_erlang, api_key, <<"dummy">>),
-    application:set_env(bugsnag_erlang, notifier_name, <<"dummy">>),
+    application:set_env(bugsnag_erlang, Key, Value),
     {ok, _} = application:ensure_all_started([bugsnag_erlang]),
-    Res = supervisor:count_children(bugsnag_sup),
-    ?assert(lists:any(fun({_, Count}) -> Count =:= 1 end, Res), Res),
+    Extra(),
     application:stop(bugsnag_erlang).
 
 -spec can_start_and_stop_the_default_logger(ct_suite:ct_config()) -> term().

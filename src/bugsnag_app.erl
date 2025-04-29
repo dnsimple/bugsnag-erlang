@@ -67,8 +67,6 @@ get_release_state() ->
 -spec get_api_key() -> binary() | error.
 get_api_key() ->
     case application:get_env(bugsnag_erlang, api_key) of
-        undefined ->
-            error;
         {ok, "ENTER_API_KEY"} ->
             error;
         {ok, Value} when is_binary(Value) ->
@@ -77,7 +75,9 @@ get_api_key() ->
             case io_lib:latin1_char_list(Value) of
                 true -> list_to_binary(Value);
                 false -> error
-            end
+            end;
+        _ ->
+            error
     end.
 
 -spec get_handler_name() -> atom().
