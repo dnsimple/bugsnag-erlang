@@ -22,12 +22,8 @@ and no handler will be registered. For the rest of the keys, see `t:config/0`.
 If a new handler wants to be added, the `handler_name` key can be set to a new atom.
 """.
 
--export([start_link/2, add_handler/1, add_handler/2, remove_handler/1]).
+-export([add_handler/1, add_handler/2, remove_handler/1]).
 -export([notify/3]).
--export([notify/5, notify/7]).
--deprecated([{start_link, 2, next_major_release}]).
--deprecated([{notify, 5, next_major_release}]).
--deprecated([{notify, 7, next_major_release}]).
 
 -doc """
 Configuration options for the Bugsnag client.
@@ -143,56 +139,6 @@ notify(BugSnagConfig, Report, Meta) ->
     },
     bugsnag_worker:notify_worker(BugSnagConfig, {event, Event}).
 
--doc """
-Add a new global `bugsnag_logger_handler` handler.
-
-This is deprecated, `add_handler/1` is preferred.
-""".
--spec start_link(binary(), binary()) -> gen_server:start_ret().
-start_link(ApiKey, ReleaseStage) ->
-    bugsnag_worker:start_link(#{
-        name => bugsnag_logger_handler,
-        pool_size => 1,
-        api_key => ApiKey,
-        release_stage => ReleaseStage
-    }).
-
--doc "Notify a global worker about an exception.".
--spec notify(atom(), atom() | string(), string() | binary(), module(), non_neg_integer()) -> ok.
-notify(Type, Reason, Message, Module, Line) ->
-    notify(Type, Reason, Message, Module, Line, generate_trace(), undefined).
-
--doc "Notify a global worker about an exception.".
--spec notify(
-    atom(), atom() | string(), string() | binary(), module(), non_neg_integer(), [term()], term()
-) -> ok.
-notify(Type, Reason, Message, Module, Line, Trace, Request) ->
-    Payload = #{
-        type => Type,
-        reason => Reason,
-        message => Message,
-        module => Module,
-        line => Line,
-        trace => Trace,
-        request => Request
-    },
-    gen_server:cast(bugsnag_worker, {legacy, Payload}).
-
--spec generate_trace() -> list().
-generate_trace() ->
-    StepsBack = 1,
-    case erlang:process_info(self(), current_stacktrace) of
-        {_, StackTrace} when is_list(StackTrace) ->
-            lists:nthtail(StepsBack, StackTrace);
-        _ ->
-            try
-                throw(bugsnag_gen_trace)
-            catch
-                _:_:StackTrace ->
-                    lists:nthtail(StepsBack, StackTrace)
-            end
-    end.
-
 -spec build_exception(map()) -> [bugsnag_api_error_reporting:exception()].
 build_exception(#{class := Class, reason := Reason, stacktrace := StackTrace}) ->
     do_build_exception(Class, Reason, StackTrace);
@@ -214,7 +160,7 @@ do_build_exception(Class, Reason, StackTrace) ->
 
 -spec build_breadcrumb(map(), logger:metadata()) -> [bugsnag_api_error_reporting:breadcrumb()].
 build_breadcrumb(Report, #{time := Time}) ->
-    TimeString = list_to_binary(calendar:system_time_to_rfc3339(Time, [{unit, microsecond}])),
+    TimeString = iolist_to_binary(calendar:system_time_to_rfc3339(Time, [{unit, microsecond}])),
     [
         #{
             timestamp => TimeString,

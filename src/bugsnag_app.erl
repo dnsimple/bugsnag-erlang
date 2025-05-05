@@ -30,7 +30,6 @@ do_start() ->
         error ->
             {error, no_api_key};
         ApiKey ->
-            maybe_set_error_logger(),
             Opts = #{
                 api_key => ApiKey,
                 release_stage => get_release_state(),
@@ -41,11 +40,6 @@ do_start() ->
             },
             bugsnag_sup:start_link(#{config => Opts})
     end.
-
--spec maybe_set_error_logger() -> any().
-maybe_set_error_logger() ->
-    IsErrorLoggerEnabled = true =:= application:get_env(bugsnag_erlang, error_logger, false),
-    IsErrorLoggerEnabled andalso error_logger:add_report_handler(bugsnag_error_logger).
 
 -spec is_enabled() -> boolean().
 is_enabled() ->
@@ -67,8 +61,6 @@ get_release_state() ->
 -spec get_api_key() -> binary() | error.
 get_api_key() ->
     case application:get_env(bugsnag_erlang, api_key) of
-        undefined ->
-            error;
         {ok, "ENTER_API_KEY"} ->
             error;
         {ok, Value} when is_binary(Value) ->
@@ -77,7 +69,9 @@ get_api_key() ->
             case io_lib:latin1_char_list(Value) of
                 true -> list_to_binary(Value);
                 false -> error
-            end
+            end;
+        _ ->
+            error
     end.
 
 -spec get_handler_name() -> atom().

@@ -3,6 +3,6 @@
     {licenses, ["MIT"]},
     {vsn, git},
     {mod, {bugsnag_app, []}},
-    {applications, [kernel, stdlib, inets, crypto, ssl, lager]},
+    {applications, [kernel, stdlib, inets, crypto, ssl]},
     {links, [{"GitHub", "https://github.com/dnsimple/bugsnag-erlang"}]}
 ]}.

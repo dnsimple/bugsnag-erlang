@@ -29,19 +29,6 @@ Or `logger`:
 When embedding, make sure to set up the configuration elements in your `sys.config` (or other config file),
 See `m:bugsnag` for configuration details.
 
-## Lager handler
-
-We also provide a [lager](https://github.com/basho/lager) handler to report anything
-above a certain level (by default, `error`) to Bugsnag.
-
-For example, simply add to your `sys.config`
-
-```erlang
-{bugsnag_lager_handler, critical}
-```
-
-to your lager handler config.
-
 ## Testing
 
 To test the codebase:
