@@ -5,25 +5,24 @@
 %% This module defines a top supervisor for the Bugsnag handler.
 %% It uses a `rest_for_one` strategy, that is, the order matters.
 %%
-%% 1. A `m:bugsnag_registry` worker responsible for creating an ETS table (and then hibernating).
-%% 2. A `m:bugsnag_worker_sup` supervising a static pool of `m:bugsnag_worker` workers.
-%% 3. A `m:bugsnag_register` worker responsible for registering the logger handler and unregistering on termination.
+%% 1. A `m:bugsnag_worker_sup` supervising a static pool of `m:bugsnag_worker` workers.
+%% 2. A `m:bugsnag_register` worker responsible for registering the logger handler and unregistering on termination.
 %%
 %% The supervision tree is as follows
 %%
-%%                       bugsnag_sup
-%%                           |
-%%                      (dynamically)
-%%                           |
-%%                  bugsnag_handler_sup
-%%                 /         |          \
-%%                /          |           \
-%%               /           |            \
-%%  bugsnag_registry  bugsnag_worker_sup  bugsnag_register
-%%  (keeps ets table)        |            (adds and remove logger handler)
-%%                          /|\
-%%                         / | \
-%%                    [bugsnag_worker]
+%%                    bugsnag_sup
+%%                        |
+%%                   (dynamically)
+%%                        |
+%%               bugsnag_handler_sup
+%%              /                    \
+%%             /                      \
+%%            /                        \
+%%     bugsnag_worker_sup              bugsnag_register
+%%            |                        (adds and remove logger handler)
+%%           /|\
+%%          / | \
+%%     [bugsnag_worker]
 
 -behaviour(supervisor).
 
@@ -37,14 +36,6 @@ start_link(#{config := #{name := Name}} = LoggerConfig) ->
 init(#{config := Config} = LoggerConfig) ->
     Strategy = #{strategy => rest_for_one, intensity => 20, period => 10},
     Children = [
-        #{
-            id => bugsnag_registry,
-            start => {bugsnag_registry, start_link, [Config]},
-            restart => permanent,
-            shutdown => 5000,
-            type => worker,
-            modules => [bugsnag_registry]
-        },
         #{
             id => bugsnag_worker_sup,
             start => {bugsnag_worker_sup, start_link, [Config]},

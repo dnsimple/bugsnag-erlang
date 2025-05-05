@@ -116,13 +116,8 @@ log_messages_tests() ->
 can_start_app_with_disabled(_) ->
     application:set_env(bugsnag_erlang, enabled, false),
     {ok, _} = application:ensure_all_started([bugsnag_erlang]),
-    ?assertEqual(
-        true,
-        lists:all(
-            fun({_, Count}) -> Count =:= 0 end,
-            supervisor:count_children(bugsnag_sup)
-        )
-    ).
+    ActiveCount = lists:keyfind(active, 1, supervisor:count_children(bugsnag_sup)),
+    ?assertEqual({active, 1}, ActiveCount).
 
 -spec can_start_app_with_enabled(ct_suite:ct_config()) -> term().
 can_start_app_with_enabled(_) ->
@@ -131,8 +126,8 @@ can_start_app_with_enabled(_) ->
     Fun = fun(ApiKey) ->
         application:set_env(bugsnag_erlang, api_key, ApiKey),
         {ok, _} = application:ensure_all_started([bugsnag_erlang]),
-        Res = supervisor:count_children(bugsnag_sup),
-        ?assert(lists:any(fun({_, Count}) -> Count =:= 1 end, Res), Res),
+        ActiveCount = lists:keyfind(active, 1, supervisor:count_children(bugsnag_sup)),
+        ?assertEqual({active, 2}, ActiveCount),
         application:stop(bugsnag_erlang)
     end,
     lists:foreach(Fun, List).
@@ -155,8 +150,8 @@ can_start_with_different_release_states(_) ->
     Fun = fun(ReleaseState) ->
         application:set_env(bugsnag_erlang, release_state, ReleaseState),
         {ok, _} = application:ensure_all_started([bugsnag_erlang]),
-        Res = supervisor:count_children(bugsnag_sup),
-        ?assert(lists:any(fun({_, Count}) -> Count =:= 1 end, Res), Res),
+        ActiveCount = lists:keyfind(active, 1, supervisor:count_children(bugsnag_sup)),
+        ?assertEqual({active, 2}, ActiveCount),
         application:stop(bugsnag_erlang)
     end,
     lists:foreach(Fun, List).
@@ -164,7 +159,8 @@ can_start_with_different_release_states(_) ->
 -spec can_start_with_pool_size(ct_suite:ct_config()) -> term().
 can_start_with_pool_size(Config) ->
     Extra = fun() ->
-        [{_, Pid0, _, _}] = supervisor:which_children(bugsnag_sup),
+        TopSupChildren = supervisor:which_children(bugsnag_sup),
+        {_, Pid0, _, _} = lists:keyfind(bugsnag_logger_handler, 1, TopSupChildren),
         [Pid1] = [P || {bugsnag_worker_sup, P, _, _} <- supervisor:which_children(Pid0)],
         Res = supervisor:which_children(Pid1),
         ?assertEqual(7, length(Res), Res)
@@ -234,7 +230,7 @@ can_start_and_stop_different_loggers(CtConfig) ->
 supervision_tree_starts_successfully(CtConfig) ->
     Res = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
     ?assertMatch({ok, Pid} when is_pid(Pid), Res),
-    ?assertNotEqual(undefined, ets:info(?FUNCTION_NAME)).
+    ?assertNotEqual(undefined, ets:info(bugsnag_registry)).
 
 -spec does_not_crash_on_bad_messages(ct_suite:ct_config()) -> term().
 does_not_crash_on_bad_messages(CtConfig) ->
@@ -329,7 +325,7 @@ generate_all_log_level_events_and_types() ->
 
 -spec get_worker(ct_suite:ct_config(), atom()) -> pid().
 get_worker(_CtConfig, Name) ->
-    ets:lookup_element(Name, 1, 2).
+    ets:lookup_element(bugsnag_registry, {Name, 1}, 2).
 
 -spec get_all_delivered_payloads(ct_suite:ct_config(), atom()) -> [term()].
 get_all_delivered_payloads(_CtConfig, Name) ->

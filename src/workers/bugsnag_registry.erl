@@ -4,15 +4,15 @@
 
 -behaviour(gen_server).
 
--export([start_link/1, init/1, handle_call/3, handle_cast/2]).
+-export([start_link/0, init/1, handle_call/3, handle_cast/2]).
 
--spec start_link(bugsnag:config()) -> gen_server:start_ret().
-start_link(Config) ->
-    gen_server:start_link(?MODULE, Config, [{hibernate_after, 0}]).
+-spec start_link() -> gen_server:start_ret().
+start_link() ->
+    gen_server:start_link(?MODULE, noargs, [{hibernate_after, 0}]).
 
--spec init(bugsnag:config()) -> {ok, no_state, hibernate}.
-init(#{name := Name}) ->
-    _ = ets:new(Name, [named_table, public, set, {read_concurrency, true}]),
+-spec init(noargs) -> {ok, no_state, hibernate}.
+init(noargs) ->
+    _ = ets:new(?MODULE, [named_table, public, set, {read_concurrency, true}]),
     {ok, no_state, hibernate}.
 
 -spec handle_call(term(), gen_server:from(), no_state) -> {reply, ok, no_state, hibernate}.
