@@ -42,13 +42,13 @@ start_link(N, Config) ->
 -spec notify_worker(bugsnag:config(), payload()) -> ok.
 notify_worker(#{name := Name, pool_size := PoolSize}, Payload) ->
     Int = 1 + erlang:phash2(self(), PoolSize),
-    Pid = ets:lookup_element(Name, Int, 2),
+    Pid = ets:lookup_element(bugsnag_registry, {Name, Int}, 2),
     gen_server:cast(Pid, Payload).
 
 % Gen server hooks
 -spec init({undefined | pos_integer(), bugsnag:config()}) -> {ok, state()}.
 init({N, #{name := Name} = Config}) ->
-    ets:insert(Name, {N, self()}),
+    ets:insert(bugsnag_registry, {{Name, N}, self()}),
     do_init(Config).
 
 -spec handle_cast({event, bugsnag_api_error_reporting:event()}, state()) ->
