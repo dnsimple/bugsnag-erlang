@@ -30,7 +30,6 @@ do_start() ->
         error ->
             {error, no_api_key};
         ApiKey ->
-            maybe_set_error_logger(),
             Opts = #{
                 api_key => ApiKey,
                 release_stage => get_release_state(),
@@ -41,11 +40,6 @@ do_start() ->
             },
             bugsnag_sup:start_link(#{config => Opts})
     end.
-
--spec maybe_set_error_logger() -> any().
-maybe_set_error_logger() ->
-    IsErrorLoggerEnabled = true =:= application:get_env(bugsnag_erlang, error_logger, false),
-    IsErrorLoggerEnabled andalso error_logger:add_report_handler(bugsnag_error_logger).
 
 -spec is_enabled() -> boolean().
 is_enabled() ->
