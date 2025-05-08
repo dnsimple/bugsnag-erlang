@@ -161,9 +161,9 @@ do_build_exception(Class, Reason, StackTrace) ->
 -spec format_str(term()) -> unicode:unicode_binary().
 format_str(String) when is_binary(String) ->
     case unicode:characters_to_binary(String, utf8, utf8) of
-        {error, Bin, _} -> string:slice(Bin, 0, 256);
-        {incomplete, Bin, _} -> string:slice(Bin, 0, 256);
-        Bin when is_binary(Bin) -> string:slice(Bin, 0, 256)
+        {error, Bin, _} -> Bin;
+        {incomplete, Bin, _} -> Bin;
+        Bin when is_binary(Bin) -> Bin
     end;
 format_str(Atom) when is_atom(Atom) ->
     format_str(atom_to_binary(Atom, utf8));
