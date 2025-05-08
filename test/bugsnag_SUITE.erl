@@ -19,7 +19,7 @@ groups() ->
     [
         {app, [sequence], app_tests()},
         {logger, [sequence], logger_tests()},
-        {log_messages, [parallel], log_messages_tests()}
+        {log_messages, [sequence], log_messages_tests()}
     ].
 
 -spec init_per_suite(ct_suite:ct_config()) -> ct_suite:ct_config().
@@ -107,6 +107,7 @@ log_messages_tests() ->
         generate_telemetry_exception_event_from_structured_log,
         generate_datadog_exception_event_from_structured_log,
         generate_exception_event_from_structured_log,
+        non_standard_exception_reason,
         all_log_events_can_be_handled,
         verify_against_schema
     ].
@@ -271,11 +272,30 @@ generate_exception_event_from_structured_log(CtConfig) ->
 -spec do_generate_exception_event_from_structured_log(ct_suite:ct_config(), atom(), atom()) ->
     term().
 do_generate_exception_event_from_structured_log(CtConfig, Type, Name) ->
-    _ = bugsnag:add_handler(template_handler(CtConfig, Name)),
+    _ = bugsnag:add_handler(template_handler(CtConfig, Name), #{level => error}),
     generate_exception(bugsnag_gen_trace, Type),
-    Validator = fun(ReturnValue) -> lists:any(fun has_exception/1, ReturnValue) end,
+    Validator = fun(ReturnValue) -> lists:all(fun has_exception/1, ReturnValue) end,
     {ok, Logs} = wait_helper:wait_until(
         fun() -> get_all_delivered_payloads(CtConfig, Name) end,
+        expected,
+        #{no_throw => true, time_left => timer:seconds(1), sleep_time => 50, validator => Validator}
+    ),
+    verify_schema(schema(), Logs),
+    {comment, "Generated exception formatted correctly"}.
+
+-spec non_standard_exception_reason(ct_suite:ct_config()) -> term().
+non_standard_exception_reason(CtConfig) ->
+    _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME), #{level => error}),
+    generate_exception(hello_world, std),
+    generate_exception("hello world", std),
+    generate_exception(<<"hello world">>, std),
+    generate_exception({error, hello_world}, std),
+    generate_exception({<<"hello_world">>}, std),
+    generate_exception(<<"aa", 222>>, std),
+    generate_exception(<<"aa", 922>>, std),
+    Validator = fun(ReturnValue) -> lists:all(fun has_exception/1, ReturnValue) end,
+    {ok, Logs} = wait_helper:wait_until(
+        fun() -> get_all_delivered_payloads(CtConfig, ?FUNCTION_NAME) end,
         expected,
         #{no_throw => true, time_left => timer:seconds(1), sleep_time => 50, validator => Validator}
     ),
@@ -401,8 +421,8 @@ has_exception(
             #{
                 <<"exceptions">> := [
                     #{
-                        <<"errorClass">> := <<"throw">>,
-                        <<"message">> := <<"bugsnag_gen_trace">>
+                        <<"errorClass">> := _,
+                        <<"message">> := _
                     }
                 ]
             }

@@ -153,10 +153,22 @@ do_build_exception(Class, Reason, StackTrace) ->
     [
         #{
             'errorClass' => Class,
-            message => Reason,
+            message => format_str(Reason),
             stacktrace => process_trace(StackTrace)
         }
     ].
+
+-spec format_str(term()) -> unicode:unicode_binary().
+format_str(String) when is_binary(String) ->
+    case unicode:characters_to_binary(String, utf8, utf8) of
+        {error, Bin, _} -> Bin;
+        {incomplete, Bin, _} -> Bin;
+        Bin when is_binary(Bin) -> Bin
+    end;
+format_str(Atom) when is_atom(Atom) ->
+    format_str(atom_to_binary(Atom, utf8));
+format_str(Other) ->
+    format_str(unicode:characters_to_binary(io_lib:format("~0tp", [Other]))).
 
 -spec build_breadcrumb(map(), logger:metadata()) -> [bugsnag_api_error_reporting:breadcrumb()].
 build_breadcrumb(Report, #{time := Time}) ->
