@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## main
 
+## 3.0.1
+
+- Fixed an issue with proper unicode encoding of the exception reason.
+
 ## 3.0.0
 
 - Introduced support for OTP Logger
