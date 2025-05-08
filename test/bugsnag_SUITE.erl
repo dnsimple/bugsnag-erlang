@@ -107,6 +107,7 @@ log_messages_tests() ->
         generate_telemetry_exception_event_from_structured_log,
         generate_datadog_exception_event_from_structured_log,
         generate_exception_event_from_structured_log,
+        non_standard_exception_reason,
         all_log_events_can_be_handled,
         verify_against_schema
     ].
@@ -276,6 +277,19 @@ do_generate_exception_event_from_structured_log(CtConfig, Type, Name) ->
     Validator = fun(ReturnValue) -> lists:any(fun has_exception/1, ReturnValue) end,
     {ok, Logs} = wait_helper:wait_until(
         fun() -> get_all_delivered_payloads(CtConfig, Name) end,
+        expected,
+        #{no_throw => true, time_left => timer:seconds(1), sleep_time => 50, validator => Validator}
+    ),
+    verify_schema(schema(), Logs),
+    {comment, "Generated exception formatted correctly"}.
+
+-spec non_standard_exception_reason(ct_suite:ct_config()) -> term().
+non_standard_exception_reason(CtConfig) ->
+    _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
+    generate_exception({error, bad_reason}, std),
+    Validator = fun(ReturnValue) -> lists:any(fun has_exception/1, ReturnValue) end,
+    {ok, Logs} = wait_helper:wait_until(
+        fun() -> get_all_delivered_payloads(CtConfig, ?FUNCTION_NAME) end,
         expected,
         #{no_throw => true, time_left => timer:seconds(1), sleep_time => 50, validator => Validator}
     ),
