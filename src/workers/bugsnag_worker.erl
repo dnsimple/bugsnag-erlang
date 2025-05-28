@@ -130,8 +130,8 @@ get_hostname() ->
 
 -spec get_version() -> binary().
 get_version() ->
-    case lists:keyfind(bugsnag_erlang, 1, application:loaded_applications()) of
-        {bugsnag_erlang, _, Vsn} when is_list(Vsn) ->
+    case application:get_key(bugsnag_erlang, vsn) of
+        {ok, Vsn} when is_list(Vsn) ->
             list_to_binary(Vsn);
         _ ->
             <<"0.0.0">>
