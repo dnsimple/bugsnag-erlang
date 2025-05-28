@@ -222,14 +222,11 @@ build_severity(#{level := error}) -> error;
 build_severity(#{level := notice}) -> info;
 build_severity(#{level := info}) -> info;
 build_severity(#{level := debug}) -> info;
-build_severity(#{level := warning}) -> warning;
-build_severity(_) -> warning.
+build_severity(#{level := warning}) -> warning.
 
 -spec build_severity_reason(metadata()) -> bugsnag_api_error_reporting:severity_reason().
 build_severity_reason(#{level := Level}) ->
-    #{type => log, attributes => #{level => Level}};
-build_severity_reason(_) ->
-    #{type => log, attributes => #{level => warning}}.
+    #{type => log, attributes => #{level => Level}}.
 
 -spec build_metadata(map(), logger:metadata()) -> map().
 build_metadata(Report, #{mfa := Mfa, line := Line}) ->
