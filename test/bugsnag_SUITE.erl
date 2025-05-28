@@ -113,6 +113,7 @@ log_messages_tests() ->
         log_without_meta,
         log_different_contexts,
         log_from_worker,
+        log_with_report_cb,
         verify_against_schema
     ].
 
@@ -351,6 +352,19 @@ log_from_worker(CtConfig) ->
     Logs = get_all_delivered_payloads(CtConfig, ?FUNCTION_NAME),
     ?assertMatch([], Logs).
 
+-spec log_with_report_cb(ct_suite:ct_config()) -> term().
+log_with_report_cb(CtConfig) ->
+    _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
+    [
+        generate_exception(bugsnag_gen_trace, Context, Level)
+     || Level <- [debug, info, notice, warning, error, critical, alert, emergency],
+        Context <- [with_report_cb_1, with_report_cb_2]
+    ],
+    Logs = get_all_delivered_payloads(CtConfig, ?FUNCTION_NAME),
+    Schema = schema(),
+    verify_schema(Schema, Logs),
+    {comment, "All returned errors are validated against the schema"}.
+
 -spec log_without_meta(ct_suite:ct_config()) -> term().
 log_without_meta(CtConfig) ->
     _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
@@ -461,6 +475,19 @@ generate_exception(Reason0, Type, Level) ->
                         reason => Reason,
                         stacktrace => StactTrace
                     });
+                with_report_cb_1 ->
+                    ?LOG(Level, #{
+                        class => Class,
+                        reason => Reason,
+                        stacktrace => StactTrace
+                    }, #{report_cb => fun ?MODULE:report_cb/1});
+                with_report_cb_2 ->
+                    ?LOG(Level, #{
+                        class => Class,
+                        reason => Reason,
+                        stacktrace => StactTrace
+                    }, #{report_cb => fun ?MODULE:report_cb/2});
+
                 no_what ->
                     ?LOG(Level, #{
                         class => Class,
@@ -520,6 +547,15 @@ has_exception(_) ->
 
 schema() ->
     json:decode(list_to_binary(raw_schema())).
+
+report_cb(_) ->
+    {"Lorem ipsum dolor sit amet, consectetur adipisicing elit.", []}.
+
+report_cb(_, _) ->
+    """
+    Lorem ipsum dolor sit amet,
+    consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+    """.
 
 raw_schema() ->
     """
