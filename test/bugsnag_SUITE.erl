@@ -109,7 +109,10 @@ log_messages_tests() ->
         generate_datadog_exception_event_from_structured_log,
         generate_exception_event_from_structured_log,
         non_standard_exception_reason,
-        all_log_events_can_be_handled,
+        non_exceptions_are_not_handled,
+        log_without_meta,
+        log_different_contexts,
+        log_from_worker,
         verify_against_schema
     ].
 
@@ -317,23 +320,56 @@ non_standard_exception_reason(CtConfig) ->
     verify_schema(schema(), Logs),
     {comment, "Generated exception formatted correctly"}.
 
--spec all_log_events_can_be_handled(ct_suite:ct_config()) -> term().
-all_log_events_can_be_handled(CtConfig) ->
+-spec non_exceptions_are_not_handled(ct_suite:ct_config()) -> term().
+non_exceptions_are_not_handled(CtConfig) ->
     Handler = template_handler(CtConfig, ?FUNCTION_NAME),
     _ = bugsnag:add_handler(Handler, #{level => all}),
     generate_all_log_level_events_and_types(),
-    case wait_until_at_least_logs(CtConfig, ?FUNCTION_NAME, 8) of
-        {ok, Logs} ->
-            verify_schema(schema(), Logs),
-            {comment, "All log levels were triggered."};
-        {error, {_, _, [{times, _, History} | _], _}} ->
-            ct:fail("Failed with last check having ~B logs (expected ~B)", [length(History), 8])
-    end.
+    Logs = get_all_delivered_payloads(CtConfig, ?FUNCTION_NAME),
+    ?assertMatch([], Logs).
+
+-spec log_different_contexts(ct_suite:ct_config()) -> term().
+log_different_contexts(CtConfig) ->
+    _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
+    [
+        generate_exception(bugsnag_gen_trace, Context, Level)
+     || Level <- [debug, info, notice, warning, error, critical, alert, emergency],
+        Context <- [no_what, with_message]
+    ],
+    Logs = get_all_delivered_payloads(CtConfig, ?FUNCTION_NAME),
+    Schema = schema(),
+    verify_schema(Schema, Logs),
+    {comment, "All returned errors are validated against the schema"}.
+
+-spec log_from_worker(ct_suite:ct_config()) -> term().
+log_from_worker(CtConfig) ->
+    _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
+    [
+        generate_exception(bugsnag_gen_trace, from_worker, Level)
+     || Level <- [debug, info, notice, warning, error, critical, alert, emergency]
+    ],
+    Logs = get_all_delivered_payloads(CtConfig, ?FUNCTION_NAME),
+    ?assertMatch([], Logs).
+
+-spec log_without_meta(ct_suite:ct_config()) -> term().
+log_without_meta(CtConfig) ->
+    _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
+    [
+        generate_exception(bugsnag_gen_trace, no_meta, Level)
+     || Level <- [debug, info, notice, warning, error, critical, alert, emergency]
+    ],
+    Logs = get_all_delivered_payloads(CtConfig, ?FUNCTION_NAME),
+    Schema = schema(),
+    verify_schema(Schema, Logs),
+    {comment, "All returned errors are validated against the schema"}.
 
 -spec verify_against_schema(ct_suite:ct_config()) -> term().
 verify_against_schema(CtConfig) ->
     _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
-    generate_exception(bugsnag_gen_trace, std),
+    [
+        generate_exception(bugsnag_gen_trace, std, Level)
+     || Level <- [debug, info, notice, warning, error, critical, alert, emergency]
+    ],
     Logs = get_all_delivered_payloads(CtConfig, ?FUNCTION_NAME),
     Schema = schema(),
     verify_schema(Schema, Logs),
@@ -399,27 +435,61 @@ template_handler(CtConfig, Name) ->
     }.
 
 generate_exception(Reason0, Type) ->
+    generate_exception(Reason0, Type, error).
+
+generate_exception(Reason0, Type, Level) ->
     try
         throw(Reason0)
     catch
         Class:Reason:StactTrace ->
             case Type of
+                from_worker ->
+                    logger:log(
+                        Level,
+                        #{
+                            what => generate_exception,
+                            class => Class,
+                            reason => Reason,
+                            stacktrace => StactTrace
+                        },
+                        #{mfa => {bugsnag_worker, generate_exception, 2}}
+                    );
+                no_meta ->
+                    logger:log(Level, #{
+                        what => generate_exception,
+                        class => Class,
+                        reason => Reason,
+                        stacktrace => StactTrace
+                    });
+                no_what ->
+                    ?LOG(Level, #{
+                        class => Class,
+                        reason => Reason,
+                        stacktrace => StactTrace
+                    });
+                with_message ->
+                    ?LOG(Level, #{
+                        message => generate_exception,
+                        class => Class,
+                        reason => Reason,
+                        stacktrace => StactTrace
+                    });
                 std ->
-                    ?LOG_ERROR(#{
+                    ?LOG(Level, #{
                         what => generate_exception,
                         class => Class,
                         reason => Reason,
                         stacktrace => StactTrace
                     });
                 telemetry ->
-                    ?LOG_ERROR(#{
+                    ?LOG(Level, #{
                         what => generate_exception,
                         kind => Class,
                         reason => Reason,
                         stacktrace => StactTrace
                     });
                 datadog ->
-                    ?LOG_ERROR(#{
+                    ?LOG(Level, #{
                         what => generate_exception,
                         error => #{
                             kind => Class,
@@ -517,6 +587,7 @@ raw_schema() ->
               },
              "exceptions": {
                "type": "array",
+               "minItems": 1,
                "items": {
                  "type": "object",
                  "properties": {

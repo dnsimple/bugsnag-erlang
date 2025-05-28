@@ -147,8 +147,8 @@ build_exception(#{kind := Class, reason := Reason, stacktrace := StackTrace}) ->
     do_build_exception(Class, Reason, StackTrace);
 build_exception(#{error := #{kind := Class, message := Reason, stack := StackTrace}}) ->
     do_build_exception(Class, Reason, StackTrace);
-build_exception(_) ->
-    [].
+build_exception(Report) ->
+    erlang:error({missing_exception, Report}).
 
 do_build_exception(Class, Reason, StackTrace) ->
     [
