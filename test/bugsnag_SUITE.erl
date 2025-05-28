@@ -476,18 +476,25 @@ generate_exception(Reason0, Type, Level) ->
                         stacktrace => StactTrace
                     });
                 with_report_cb_1 ->
-                    ?LOG(Level, #{
-                        class => Class,
-                        reason => Reason,
-                        stacktrace => StactTrace
-                    }, #{report_cb => fun ?MODULE:report_cb/1});
+                    ?LOG(
+                        Level,
+                        #{
+                            class => Class,
+                            reason => Reason,
+                            stacktrace => StactTrace
+                        },
+                        #{report_cb => fun ?MODULE:report_cb/1}
+                    );
                 with_report_cb_2 ->
-                    ?LOG(Level, #{
-                        class => Class,
-                        reason => Reason,
-                        stacktrace => StactTrace
-                    }, #{report_cb => fun ?MODULE:report_cb/2});
-
+                    ?LOG(
+                        Level,
+                        #{
+                            class => Class,
+                            reason => Reason,
+                            stacktrace => StactTrace
+                        },
+                        #{report_cb => fun ?MODULE:report_cb/2}
+                    );
                 no_what ->
                     ?LOG(Level, #{
                         class => Class,
