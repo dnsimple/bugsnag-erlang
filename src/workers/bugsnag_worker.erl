@@ -54,7 +54,7 @@ init({N, #{name := Name} = Config}) ->
 -spec handle_cast({event, bugsnag_api_error_reporting:event()}, state()) ->
     {noreply, state()}.
 handle_cast({event, Event}, #bugsnag_state{} = State) when is_map(Event) ->
-    send_pending(Event, State);
+    maybe_send_next(Event, State);
 handle_cast(_, State) ->
     {noreply, State}.
 
@@ -68,24 +68,27 @@ handle_info({http, {Ref, {{_, 200, _}, _, _}}}, #bugsnag_state{pending = Ref} = 
 handle_info(
     {http, {Ref, {{_, Status, ReasonPhrase}, _, _}}}, #bugsnag_state{pending = Ref} = State
 ) ->
-    ?LOG_WARNING(#{what => send_status_failed, status => Status, reason => ReasonPhrase}),
+    ?LOG_WARNING(#{what => send_status_failed, http_status => Status, http_reason => ReasonPhrase}),
     send_pending(State#bugsnag_state{pending = undefined});
 handle_info({http, {Ref, Unknown}}, #bugsnag_state{pending = Ref} = State) ->
-    ?LOG_WARNING(#{what => send_status_failed, reason => Unknown}),
+    ?LOG_WARNING(#{what => send_status_failed, http_reason => Unknown}),
     send_pending(State#bugsnag_state{pending = undefined});
 handle_info(_Info, State) ->
     {noreply, State}.
 
 % Internal API
 
-send_pending(
+maybe_send_next(
     Event,
     #bugsnag_state{acc = Acc, acc_size = Limit, acc_limit = Limit, base_event = BaseEvent} = State
 ) ->
     {{value, ToDiscard}, Acc1} = queue:out(Acc),
     ?LOG_WARNING(#{what => bugsnag_discarding_event_overflow, event => ToDiscard}),
-    send_pending(State#bugsnag_state{acc = queue:in(maps:merge(BaseEvent, Event), Acc1)});
-send_pending(Event, #bugsnag_state{acc = Acc, acc_size = AccSize, base_event = BaseEvent} = State) ->
+    MergedEvent = maps:merge(BaseEvent, Event),
+    send_pending(State#bugsnag_state{acc = queue:in(MergedEvent, Acc1)});
+maybe_send_next(
+    Event, #bugsnag_state{acc = Acc, acc_size = AccSize, base_event = BaseEvent} = State
+) ->
     MergedEvent = maps:merge(BaseEvent, Event),
     send_pending(State#bugsnag_state{acc = queue:in(MergedEvent, Acc), acc_size = AccSize + 1}).
 
@@ -97,7 +100,7 @@ send_pending(
 ) when is_integer(N), 0 < N ->
     Report = BaseReport#{events := queue:to_list(Acc)},
     Ref = deliver_payload(ApiKey, Report, State),
-    {noreply, State#bugsnag_state{pending = Ref, acc = queue:new()}};
+    {noreply, State#bugsnag_state{pending = Ref, acc = queue:new(), acc_size = 0}};
 send_pending(#bugsnag_state{acc_size = 0} = State) ->
     {noreply, State};
 send_pending(#bugsnag_state{} = State) ->
