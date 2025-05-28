@@ -90,7 +90,8 @@ app_tests() ->
         can_start_with_pool_size,
         can_start_with_handler_name,
         can_start_with_events_limit,
-        can_start_with_notifier_name
+        can_start_with_notifier_name,
+        can_start_with_custom_log_level
     ].
 
 logger_tests() ->
@@ -167,6 +168,20 @@ can_start_with_pool_size(Config) ->
         ?assertEqual(7, length(Res), Res)
     end,
     can_start_with_config_key(Config, pool_size, 7, Extra).
+
+-spec can_start_with_custom_log_level(ct_suite:ct_config()) -> term().
+can_start_with_custom_log_level(_) ->
+    application:set_env(bugsnag_erlang, enabled, true),
+    application:set_env(bugsnag_erlang, api_key, <<"dummy">>),
+    List = [debug, info, notice, warning, error, critical, alert, emergency],
+    Fun = fun(Level) ->
+        application:set_env(bugsnag_erlang, level, Level),
+        {ok, _} = application:ensure_all_started([bugsnag_erlang]),
+        ActiveCount = lists:keyfind(active, 1, supervisor:count_children(bugsnag_sup)),
+        ?assertEqual({active, 2}, ActiveCount),
+        application:stop(bugsnag_erlang)
+    end,
+    lists:foreach(Fun, List).
 
 -spec can_start_with_handler_name(ct_suite:ct_config()) -> term().
 can_start_with_handler_name(Config) ->

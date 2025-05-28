@@ -30,6 +30,7 @@ do_start() ->
         error ->
             {error, no_api_key};
         ApiKey ->
+            Level = get_level(),
             Opts = #{
                 api_key => ApiKey,
                 release_stage => get_release_state(),
@@ -38,12 +39,30 @@ do_start() ->
                 events_limit => get_events_limit(),
                 notifier_name => get_notifier_name()
             },
-            bugsnag_sup:start_link(#{config => Opts})
+            bugsnag_sup:start_link(#{level => Level, config => Opts})
     end.
 
 -spec is_enabled() -> boolean().
 is_enabled() ->
     {ok, true} =:= application:get_env(bugsnag_erlang, enabled).
+
+-spec get_level() -> logger:level().
+get_level() ->
+    case application:get_env(bugsnag_erlang, level) of
+        undefined ->
+            error;
+        {ok, L} when
+            debug =:= L;
+            info =:= L;
+            notice =:= L;
+            warning =:= L;
+            error =:= L;
+            critical =:= L;
+            alert =:= L;
+            emergency =:= L
+        ->
+            L
+    end.
 
 -spec get_release_state() -> binary().
 get_release_state() ->

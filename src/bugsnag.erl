@@ -10,6 +10,7 @@ If using application environment variables, the config looks like the following:
 ```erlang
 {bugsnag_erlang, [
     {enabled, true},
+    {level, error},
     {api_key, "BUGSNAG_API_KEY"},
     {release_stage, "production"},
     {handler_name, bugsnag_logger_handler},
