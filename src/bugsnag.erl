@@ -10,6 +10,7 @@ If using application environment variables, the config looks like the following:
 ```erlang
 {bugsnag_erlang, [
     {enabled, true},
+    {level, error},
     {api_key, "BUGSNAG_API_KEY"},
     {release_stage, "production"},
     {handler_name, bugsnag_logger_handler},
@@ -146,8 +147,8 @@ build_exception(#{kind := Class, reason := Reason, stacktrace := StackTrace}) ->
     do_build_exception(Class, Reason, StackTrace);
 build_exception(#{error := #{kind := Class, message := Reason, stack := StackTrace}}) ->
     do_build_exception(Class, Reason, StackTrace);
-build_exception(_) ->
-    [].
+build_exception(Report) ->
+    erlang:error({missing_exception, Report}).
 
 do_build_exception(Class, Reason, StackTrace) ->
     [
@@ -221,14 +222,11 @@ build_severity(#{level := error}) -> error;
 build_severity(#{level := notice}) -> info;
 build_severity(#{level := info}) -> info;
 build_severity(#{level := debug}) -> info;
-build_severity(#{level := warning}) -> warning;
-build_severity(_) -> warning.
+build_severity(#{level := warning}) -> warning.
 
 -spec build_severity_reason(metadata()) -> bugsnag_api_error_reporting:severity_reason().
 build_severity_reason(#{level := Level}) ->
-    #{type => log, attributes => #{level => Level}};
-build_severity_reason(_) ->
-    #{type => log, attributes => #{level => warning}}.
+    #{type => log, attributes => #{level => Level}}.
 
 -spec build_metadata(map(), logger:metadata()) -> map().
 build_metadata(Report, #{mfa := Mfa, line := Line}) ->
