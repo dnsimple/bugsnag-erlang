@@ -6,7 +6,8 @@
 %% It uses a `rest_for_one` strategy, that is, the order matters.
 %%
 %% 1. A `m:bugsnag_worker_sup` supervising a static pool of `m:bugsnag_worker` workers.
-%% 2. A `m:bugsnag_register` worker responsible for registering the logger handler and unregistering on termination.
+%% 2. A `m:bugsnag_register` worker responsible for registering
+%%      the logger handler and unregistering on termination.
 %%
 %% The supervision tree is as follows
 %%
