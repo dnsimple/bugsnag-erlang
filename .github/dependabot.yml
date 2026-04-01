@@ -12,3 +12,5 @@ updates:
       - task
       - dependencies
       - automerge
+    cooldown:
+      default-days: 3
