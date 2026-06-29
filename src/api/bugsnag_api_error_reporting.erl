@@ -166,5 +166,6 @@
     breadcrumb_type/0,
     text/0,
     severity/0,
-    severity_reason/0
+    severity_reason/0,
+    app/0
 ]).

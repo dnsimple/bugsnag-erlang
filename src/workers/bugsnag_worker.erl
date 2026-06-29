@@ -109,7 +109,8 @@ send_pending(#bugsnag_state{} = State) ->
 -spec do_init(bugsnag:config()) -> {ok, state()}.
 do_init(#{api_key := ApiKey, release_stage := ReleaseStage, notifier_name := Name} = Config) ->
     process_flag(trap_exit, true),
-    Base = build_base_event(ReleaseStage),
+    AppVersion = maps:get(app_version, Config, undefined),
+    Base = build_base_event(ReleaseStage, AppVersion),
     Report = build_base_report(Name),
     {ok, #bugsnag_state{
         acc_limit = maps:get(events_limit, Config, ?NOTIFIER_ACC_LIMIT),
@@ -140,14 +141,20 @@ get_version() ->
             <<"0.0.0">>
     end.
 
--spec build_base_event(binary()) -> bugsnag_api_error_reporting:event().
-build_base_event(ReleaseStage) ->
+-spec build_base_event(binary(), binary() | undefined) -> bugsnag_api_error_reporting:event().
+build_base_event(ReleaseStage, AppVersion) ->
     {_, OsName} = os:type(),
     #{
         device => #{hostname => get_hostname(), 'osName' => OsName},
-        app => #{'releaseStage' => ReleaseStage},
+        app => build_app(ReleaseStage, AppVersion),
         exceptions => []
     }.
+
+-spec build_app(binary(), binary() | undefined) -> bugsnag_api_error_reporting:app().
+build_app(ReleaseStage, Version) when is_binary(Version) ->
+    #{'releaseStage' => ReleaseStage, version => Version};
+build_app(ReleaseStage, _) ->
+    #{'releaseStage' => ReleaseStage}.
 
 -spec build_base_report(binary()) -> bugsnag_api_error_reporting:error_report().
 build_base_report(Name) ->
