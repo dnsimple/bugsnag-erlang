@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v6.0.3
-      - uses: erlef/setup-beam@v1
+      - uses: erlef/setup-beam@v1.24.0
         with:
           otp-version: '27'
           rebar3-version: '3.24'
