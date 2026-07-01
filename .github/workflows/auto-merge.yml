@@ -17,7 +17,7 @@ jobs:
     if: github.event.pull_request.user.login == 'dependabot[bot]' && contains(github.event.pull_request.labels.*.name, 'automerge')
     steps:
       - name: Wait for tests to succeed
-        uses: lewagon/wait-on-check-action@v1.7.0
+        uses: lewagon/wait-on-check-action@v1.8.0
         timeout-minutes: 15
         with:
           ref: ${{ github.ref }}
@@ -25,7 +25,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
           allowed-conclusions: success
-      - uses: juliangruber/merge-pull-request-action@v1
+      - uses: juliangruber/merge-pull-request-action@v1.4.0
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           number: ${{ github.event.number }}

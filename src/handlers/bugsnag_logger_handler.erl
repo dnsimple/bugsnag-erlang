@@ -28,7 +28,11 @@ Events that contain a `t:logger:report_cb()` will have this printable string as 
 -doc "OTP logger-compliant handler for BugSnag".
 -spec log(logger:log_event(), logger_handler:config()) -> any().
 log(LogEvent, Config) ->
-    _ = catch extract(LogEvent, Config).
+    try
+        extract(LogEvent, Config)
+    catch
+        _:_ -> ok
+    end.
 
 -spec extract(logger:log_event(), logger_handler:config()) -> any().
 extract(#{level := Level, msg := Msg0, meta := Meta0}, #{config := BugSnagConfig}) ->
