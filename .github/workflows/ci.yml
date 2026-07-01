@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
       - name: Run markdownlint-cli
         uses: nosborn/github-action-markdown-cli@v3.5.0
         with:
@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
       - name: Run YAML Lint
         uses: actionshub/yamllint@main
 
@@ -35,16 +35,16 @@ jobs:
     name: OTP ${{matrix.otp}}
     strategy:
       matrix:
-        otp: ['28', '27']
-        rebar3: ['3.25']
+        otp: ['29', '28', '27']
+        rebar3: ['3.27']
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.3
-      - uses: erlef/setup-beam@v1
+      - uses: actions/checkout@v7.0.0
+      - uses: erlef/setup-beam@v1.24.0
         with:
           otp-version: ${{matrix.otp}}
           rebar3-version: ${{matrix.rebar3}}
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6.1.0
         with:
           path: |
             ~/.cache/rebar3
@@ -53,7 +53,7 @@ jobs:
       - run: make build
       - run: make test
       - name: Coveralls
-        uses: coverallsapp/github-action@v2
+        uses: coverallsapp/github-action@v2.3.6
         with:
           file: _build/test/covertool/bugsnag_erlang.covertool.xml
           github-token: ${{ secrets.GITHUB_TOKEN }}
