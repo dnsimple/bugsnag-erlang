@@ -76,7 +76,8 @@ end_per_testcase(Name, _Config) ->
             application:stop(bugsnag_erlang),
             application:unset_env(bugsnag_erlang, enabled),
             application:unset_env(bugsnag_erlang, api_key),
-            application:unset_env(bugsnag_erlang, release_stage);
+            application:unset_env(bugsnag_erlang, release_stage),
+            application:unset_env(bugsnag_erlang, app_version);
         false ->
             ok
     end.
@@ -91,6 +92,7 @@ app_tests() ->
         can_start_with_handler_name,
         can_start_with_events_limit,
         can_start_with_notifier_name,
+        can_start_with_app_version,
         can_start_with_custom_log_level
     ].
 
@@ -114,6 +116,8 @@ log_messages_tests() ->
         log_different_contexts,
         log_from_worker,
         log_with_report_cb,
+        app_version_is_reported_when_configured,
+        app_version_is_absent_when_not_configured,
         verify_against_schema
     ].
 
@@ -198,6 +202,10 @@ can_start_with_events_limit(Config) ->
 -spec can_start_with_notifier_name(ct_suite:ct_config()) -> term().
 can_start_with_notifier_name(Config) ->
     can_start_with_config_key(Config, notifier_name, <<"dummy">>).
+
+-spec can_start_with_app_version(ct_suite:ct_config()) -> term().
+can_start_with_app_version(Config) ->
+    can_start_with_config_key(Config, app_version, "1.2.3").
 
 -spec can_start_with_config_key(ct_suite:ct_config(), atom(), dynamic()) -> term().
 can_start_with_config_key(Config, Key, Value) ->
@@ -377,6 +385,37 @@ log_without_meta(CtConfig) ->
     verify_schema(Schema, Logs),
     {comment, "All returned errors are validated against the schema"}.
 
+-spec app_version_is_reported_when_configured(ct_suite:ct_config()) -> term().
+app_version_is_reported_when_configured(CtConfig) ->
+    Handler = (template_handler(CtConfig, ?FUNCTION_NAME))#{app_version => <<"1.2.3">>},
+    _ = bugsnag:add_handler(Handler, #{level => error}),
+    generate_exception(bugsnag_gen_trace, std),
+    Validator = fun(ReturnValue) ->
+        [] =/= ReturnValue andalso lists:all(fun has_app_version/1, ReturnValue)
+    end,
+    {ok, Logs} = wait_helper:wait_until(
+        fun() -> get_all_delivered_payloads(CtConfig, ?FUNCTION_NAME) end,
+        expected,
+        #{no_throw => true, time_left => timer:seconds(1), sleep_time => 50, validator => Validator}
+    ),
+    verify_schema(schema(), Logs),
+    {comment, "app.version is present in the payload when app_version is configured"}.
+
+-spec app_version_is_absent_when_not_configured(ct_suite:ct_config()) -> term().
+app_version_is_absent_when_not_configured(CtConfig) ->
+    _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME), #{level => error}),
+    generate_exception(bugsnag_gen_trace, std),
+    Validator = fun(ReturnValue) ->
+        [] =/= ReturnValue andalso lists:all(fun has_no_app_version/1, ReturnValue)
+    end,
+    {ok, Logs} = wait_helper:wait_until(
+        fun() -> get_all_delivered_payloads(CtConfig, ?FUNCTION_NAME) end,
+        expected,
+        #{no_throw => true, time_left => timer:seconds(1), sleep_time => 50, validator => Validator}
+    ),
+    verify_schema(schema(), Logs),
+    {comment, "app.version is absent from the payload when app_version is not configured"}.
+
 -spec verify_against_schema(ct_suite:ct_config()) -> term().
 verify_against_schema(CtConfig) ->
     _ = bugsnag:add_handler(template_handler(CtConfig, ?FUNCTION_NAME)),
@@ -550,6 +589,33 @@ has_exception(
 ) ->
     true;
 has_exception(_) ->
+    false.
+
+has_app_version(
+    #{
+        <<"events">> := [
+            #{
+                <<"app">> := #{
+                    <<"releaseStage">> := _,
+                    <<"version">> := <<"1.2.3">>
+                }
+            }
+        ]
+    }
+) ->
+    true;
+has_app_version(_) ->
+    false.
+
+has_no_app_version(
+    #{
+        <<"events">> := [
+            #{<<"app">> := App} | _
+        ]
+    }
+) ->
+    not maps:is_key(<<"version">>, App);
+has_no_app_version(_) ->
     false.
 
 schema() ->

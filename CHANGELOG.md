@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## main
 
+- Add optional `app_version` config key to report `app.version` to Bugsnag.
+
 ## 3.0.1
 
 - Fixed an issue with proper unicode encoding of the exception reason.

@@ -37,7 +37,8 @@ do_start() ->
                 name => get_handler_name(),
                 pool_size => get_pool_size(),
                 events_limit => get_events_limit(),
-                notifier_name => get_notifier_name()
+                notifier_name => get_notifier_name(),
+                app_version => get_app_version()
             },
             bugsnag_sup:start_link(#{level => Level, config => Opts})
     end.
@@ -127,4 +128,18 @@ get_notifier_name() ->
             <<"Bugsnag Erlang">>;
         {ok, Value} when is_binary(Value) ->
             Value
+    end.
+
+-spec get_app_version() -> binary() | undefined.
+get_app_version() ->
+    case application:get_env(bugsnag_erlang, app_version) of
+        {ok, Value} when is_binary(Value) ->
+            Value;
+        {ok, Value} when is_list(Value) ->
+            case io_lib:latin1_char_list(Value) of
+                true -> list_to_binary(Value);
+                false -> undefined
+            end;
+        _ ->
+            undefined
     end.

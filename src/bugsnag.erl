@@ -43,6 +43,7 @@ It takes the following configuration options:
     The default is 1000, as an average big event including stacktraces is no bigger than 1KB,
     therefore 1000 events should keep the payload below 1MB.
 - `notifier_name`: a string, the notifier name as required by BugSnag. Defaults to "Bugsnag Erlang".
+- `app_version`: optional, the application release version reported to Bugsnag as `app.version`.
 """.
 -type config() :: #{
     api_key := binary(),
@@ -51,7 +52,8 @@ It takes the following configuration options:
     pool_size := pos_integer(),
     endpoint => binary(),
     events_limit => pos_integer(),
-    notifier_name => binary()
+    notifier_name => binary(),
+    app_version => binary() | undefined
 }.
 
 -doc "A printable string".
