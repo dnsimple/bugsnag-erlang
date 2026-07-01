@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## main
 
+## 3.2.0
+
 - Add optional `app_version` config key to report `app.version` to Bugsnag.
+
+## 3.1.0
+
+- Add a configurable logger level for the logger handler.
+- Improve how the underlying application version is extracted.
+- Fixed: reports without an exception are now ignored instead of being submitted.
+- Fixed: correct accumulator size tracking in workers, avoiding an eventual `badmatch` crash.
 
 ## 3.0.1
 
